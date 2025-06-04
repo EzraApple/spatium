@@ -71,6 +71,7 @@ const RoomDisplayCanvas: React.FC<RoomDisplayCanvasProps> = ({
     currentY: number
     startTime: number
   }>>(new Map())
+  const [recentlyPlacedFurniture, setRecentlyPlacedFurniture] = useState<Set<string>>(new Set())
   const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null)
   const databaseUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastDatabaseUpdateRef = useRef<number>(0)
@@ -160,6 +161,11 @@ const RoomDisplayCanvas: React.FC<RoomDisplayCanvasProps> = ({
     if (!room) return
     
     room.furniture.forEach(furniture => {
+      // Skip interpolation for recently placed furniture to prevent echo
+      if (recentlyPlacedFurniture.has(furniture.id)) {
+        return
+      }
+      
       // Only interpolate furniture that's selected by someone else
       if (furniture.isSelected && selectedFurnitureId !== furniture.id) {
         const currentInterpolation = interpolatedPositions.get(furniture.id)
@@ -186,7 +192,18 @@ const RoomDisplayCanvas: React.FC<RoomDisplayCanvasProps> = ({
         })
       }
     })
-  }, [room?.furniture, selectedFurnitureId])
+  }, [room?.furniture, selectedFurnitureId, recentlyPlacedFurniture])
+
+  // Clean up recently placed furniture after a delay
+  useEffect(() => {
+    if (recentlyPlacedFurniture.size === 0) return
+    
+    const timeout = setTimeout(() => {
+      setRecentlyPlacedFurniture(new Set())
+    }, 500) // Clear after 500ms to prevent echo
+    
+    return () => clearTimeout(timeout)
+  }, [recentlyPlacedFurniture])
 
   // Helper functions for door rendering
   const getVertexById = (id: string) => room?.vertices.find((v) => v.id === id)
@@ -716,6 +733,16 @@ const RoomDisplayCanvas: React.FC<RoomDisplayCanvasProps> = ({
           setFurnitureInPlacementMode(null)
           setLocalFurniturePosition(null)
           
+          // Add to recently placed furniture to prevent interpolation echo
+          setRecentlyPlacedFurniture(prev => new Set(prev).add(selectedFurnitureId))
+          
+          // Clear any interpolation for this furniture
+          setInterpolatedPositions(prev => {
+            const newMap = new Map(prev)
+            newMap.delete(selectedFurnitureId)
+            return newMap
+          })
+          
           // Clear any pending database updates and send final position
           if (databaseUpdateTimeoutRef.current) {
             clearTimeout(databaseUpdateTimeoutRef.current)
@@ -766,6 +793,16 @@ const RoomDisplayCanvas: React.FC<RoomDisplayCanvasProps> = ({
         setFurnitureInPlacementMode(null)
         setLocalFurniturePosition(null)
         
+        // Add to recently placed furniture to prevent interpolation echo
+        setRecentlyPlacedFurniture(prev => new Set(prev).add(selectedFurnitureId))
+        
+        // Clear any interpolation for this furniture
+        setInterpolatedPositions(prev => {
+          const newMap = new Map(prev)
+          newMap.delete(selectedFurnitureId)
+          return newMap
+        })
+        
         // Clear any pending database updates
         if (databaseUpdateTimeoutRef.current) {
           clearTimeout(databaseUpdateTimeoutRef.current)
@@ -789,6 +826,16 @@ const RoomDisplayCanvas: React.FC<RoomDisplayCanvasProps> = ({
       if (furnitureInPlacementMode && selectedFurnitureId) {
         setFurnitureInPlacementMode(null)
         setLocalFurniturePosition(null)
+        
+        // Add to recently placed furniture to prevent interpolation echo
+        setRecentlyPlacedFurniture(prev => new Set(prev).add(selectedFurnitureId))
+        
+        // Clear any interpolation for this furniture
+        setInterpolatedPositions(prev => {
+          const newMap = new Map(prev)
+          newMap.delete(selectedFurnitureId)
+          return newMap
+        })
         
         // Clear any pending database updates
         if (databaseUpdateTimeoutRef.current) {

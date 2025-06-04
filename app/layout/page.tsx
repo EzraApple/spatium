@@ -22,6 +22,8 @@ import {
   Copy,
   Check,
   Minus,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -46,6 +48,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
+import Loading from "./loading"
 
 function LayoutEditorContent() {
   const searchParams = useSearchParams()
@@ -53,13 +57,21 @@ function LayoutEditorContent() {
   const layoutCode = searchParams.get("code") || null
   const router = useRouter()
 
-  // Redirect to new-layout if no code is provided
+  // State to track if we're on the client side
+  const [isClient, setIsClient] = useState(false)
+
+  // Set client state after hydration
   useEffect(() => {
-    if (!layoutCode) {
+    setIsClient(true)
+  }, [])
+
+  // Redirect to new-layout if no code is provided (only on client)
+  useEffect(() => {
+    if (isClient && !layoutCode) {
       router.push("/new-layout")
       return
     }
-  }, [layoutCode, router])
+  }, [layoutCode, router, isClient])
 
   // Convex mutations
   const updateLayoutInfoMutation = useMutation(api.layouts.updateLayoutInfo)
@@ -96,6 +108,9 @@ function LayoutEditorContent() {
 
   // Copy state
   const [isCopied, setIsCopied] = useState(false)
+
+  // Code blur state
+  const [isCodeBlurred, setIsCodeBlurred] = useState(true)
 
   // Delete confirmation state
   const [furnitureToDelete, setFurnitureToDelete] = useState<{
@@ -383,6 +398,10 @@ function LayoutEditorContent() {
     }
   }
 
+  const handleToggleCodeBlur = () => {
+    setIsCodeBlurred(!isCodeBlurred)
+  }
+
   const handleDeleteFurniture = (furnitureId: string, furnitureName: string, roomId: string) => {
     setFurnitureToDelete({ furnitureId, furnitureName, roomId })
   }
@@ -419,16 +438,9 @@ function LayoutEditorContent() {
     setFurnitureToDelete(null)
   }
 
-  // Don't render anything if no code is provided (will redirect)
-  if (!layoutCode) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Grid3X3 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Redirecting...</p>
-        </div>
-      </div>
-    )
+  // Show loading state until client is ready or if redirecting
+  if (!isClient || !layoutCode) {
+    return <Loading />
   }
 
   return (
@@ -474,7 +486,21 @@ function LayoutEditorContent() {
 
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-lg">{layout.code}</span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleToggleCodeBlur}
+                className="h-8 w-8 p-0"
+              >
+                {isCodeBlurred ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+              <span className={`font-bold text-lg transition-all duration-200 ${isCodeBlurred ? 'blur-xl select-none' : ''}`}>
+                {layout.code}
+              </span>
               <Button 
                 variant="outline" 
                 size="sm"
@@ -684,16 +710,7 @@ function LayoutEditorContent() {
 
 export default function LayoutEditorPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center">
-            <Grid3X3 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p>Loading layout editor...</p>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<Loading />}>
       <LayoutEditorContent />
     </Suspense>
   )
