@@ -1,4 +1,4 @@
-# Spatium (space in latin)
+# [Spatium](https://spatium-mu.vercel.app/) (space in latin)
 
 **A tool for figuring out how to make your space work for you**
 
