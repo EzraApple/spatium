@@ -77,6 +77,7 @@ export function createRoom(
     y: 0,
     color: getNextRoomColor(existingRooms),
     doors,
+    furniture: [], // Initialize empty furniture array
     vertices: vertices.map(v => ({
       x: roundToNearestHalfInch(v.x),
       y: roundToNearestHalfInch(v.y)
@@ -159,6 +160,23 @@ export function updateRoomName(room: Room, name: string): Room {
  */
 export function getRoomDisplayName(room: Room): string {
   return room.name.trim() || "Unnamed Room";
+}
+
+/**
+ * Ensure room has furniture property (migration helper)
+ */
+export function ensureRoomHasFurniture(room: any): Room {
+  return {
+    ...room,
+    furniture: room.furniture || []
+  };
+}
+
+/**
+ * Ensure all rooms in array have furniture property
+ */
+export function ensureRoomsHaveFurniture(rooms: any[]): Room[] {
+  return rooms.map(ensureRoomHasFurniture);
 }
 
 /**

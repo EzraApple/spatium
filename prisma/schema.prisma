@@ -29,6 +29,8 @@ model User {
   updatedAt     DateTime
   sessions      Session[]
   accounts      Account[]
+  layouts       Layout[]
+  layoutPermissions LayoutPermission[]
 
   @@unique([email])
   @@map("user")
@@ -77,4 +79,32 @@ model Verification {
   updatedAt  DateTime?
 
   @@map("verification")
+}
+
+model Layout {
+  id          String   @id @default(cuid())
+  title       String
+  data        Json     // Store the entire Layout JSON structure
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // For future sharing/collaboration
+  permissions LayoutPermission[]
+  
+  @@map("layout")
+}
+
+model LayoutPermission {
+  id       String @id @default(cuid())
+  layoutId String
+  layout   Layout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String // "owner" | "editor" | "viewer"
+  
+  @@unique([layoutId, userId])
+  @@map("layout_permission")
 }

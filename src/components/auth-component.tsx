@@ -39,7 +39,12 @@ const validatePassword = (password: string): string[] => {
   return errors;
 };
 
-export function AuthComponent() {
+interface AuthComponentProps {
+  onSuccess?: () => void;
+  showTitle?: boolean;
+}
+
+export function AuthComponent({ onSuccess, showTitle = true }: AuthComponentProps = {}) {
   const [activeTab, setActiveTab] = useState("signin");
   const [formData, setFormData] = useState<AuthFormData>({
     email: "",
@@ -78,8 +83,13 @@ export function AuthComponent() {
         toast.error(result.error.message || "Failed to sign in");
       } else {
         toast.success("Welcome back! You've been signed in successfully.");
-        // Redirect to home or dashboard
-        window.location.href = "/";
+        console.log("🔑 Sign in successful, calling onSuccess callback:", !!onSuccess);
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          // Redirect to home or dashboard
+          window.location.href = "/";
+        }
       }
     } catch (error) {
       toast.error("An unexpected error occurred");
@@ -118,8 +128,13 @@ export function AuthComponent() {
         toast.error(result.error.message || "Failed to create account");
       } else {
         toast.success("Account created successfully! Welcome to Spatium.");
-        // Redirect to home or dashboard
-        window.location.href = "/";
+        console.log("🆕 Sign up successful, calling onSuccess callback:", !!onSuccess);
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          // Redirect to home or dashboard
+          window.location.href = "/";
+        }
       }
     } catch (error) {
       toast.error("An unexpected error occurred");
@@ -138,17 +153,19 @@ export function AuthComponent() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className={showTitle ? "min-h-screen bg-white flex items-center justify-center p-4" : "p-4"}>
       <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome to Spatium</CardTitle>
-          <CardDescription>
-            {activeTab === "signin" 
-              ? "Sign in to your account to continue" 
-              : "Create your account to get started"
-            }
-          </CardDescription>
-        </CardHeader>
+        {showTitle && (
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold">Welcome to Spatium</CardTitle>
+            <CardDescription>
+              {activeTab === "signin" 
+                ? "Sign in to your account to continue" 
+                : "Create your account to get started"
+              }
+            </CardDescription>
+          </CardHeader>
+        )}
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">

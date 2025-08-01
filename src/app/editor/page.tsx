@@ -1,83 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { EditorHeader } from "./components/editor-header";
-import { EditorSidebar } from "./components/editor-sidebar";
-import { EditorCanvas } from "./components/editor-canvas";
-import { RoomCreationModal } from "./components/room-creation-modal";
-import type { Room, Point } from "./types";
-import { createRoom } from "./lib/room";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "~/hooks/use-auth";
+import { LayoutDashboard } from "~/components/layout-dashboard";
 
 export default function EditorPage() {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [isCreationModalOpen, setIsCreationModalOpen] = useState(false);
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : null;
+  useEffect(() => {
+    // Redirect anonymous users to the new editor
+    if (!isLoading && !isAuthenticated) {
+      router.push("/editor/new");
+    }
+  }, [isAuthenticated, isLoading, router]);
 
-  const handleAddRoom = () => {
-    setIsCreationModalOpen(true);
-  };
-
-  const handleCreateRoom = (roomData: {
-    name: string;
-    shapeType: 'box' | 'L-shape' | 'U-shape' | 'T-shape';
-    vertices: Point[];
-    boundingBox: { widthInches: number; heightInches: number };
-    doors: Array<{
-      id: string;
-      width: number;
-      wallIndex: number;
-      position: number;
-      openDirection: 'inward' | 'outward';
-      swingAngle: number;
-      pivotSide: 'left' | 'right';
-    }>;
-  }) => {
-    const newRoom = createRoom(
-      roomData.name,
-      roomData.shapeType,
-      roomData.vertices,
-      roomData.doors,
-      rooms
+  // Show loading while checking auth status
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-pulse text-lg">Loading...</div>
+      </div>
     );
+  }
 
-    setRooms(prev => {
-      const updatedRooms = [...prev, newRoom];
-      console.log(`Created room "${newRoom.name}" - ${roomData.shapeType} shape with ${roomData.doors.length} doors`);
-      return updatedRooms;
-    });
-    setSelectedRoomId(newRoom.id);
-  };
+  // Show dashboard for authenticated users
+  if (isAuthenticated) {
+    return <LayoutDashboard />;
+  }
 
-  const handleRoomSelect = (roomId: string) => {
-    setSelectedRoomId(roomId);
-  };
-
-  return (
-    <div className="relative h-screen w-full overflow-hidden bg-slate-50">
-      {/* Main canvas background */}
-      <EditorCanvas 
-        room={selectedRoom}
-      />
-      
-      {/* Floating header */}
-      <EditorHeader />
-      
-      {/* Floating sidebar */}
-      <EditorSidebar 
-        rooms={rooms}
-        selectedRoomId={selectedRoomId}
-        onAddRoom={handleAddRoom}
-        onRoomSelect={handleRoomSelect}
-      />
-
-      {/* Room creation modal */}
-      <RoomCreationModal 
-        isOpen={isCreationModalOpen}
-        onClose={() => setIsCreationModalOpen(false)}
-        onCreateRoom={handleCreateRoom}
-      />
-    </div>
-  );
+  // This will briefly show while redirecting
+  return null;
 }

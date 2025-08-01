@@ -1,21 +1,57 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
-import type { Room } from "../types";
+import { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
+import type { Room, FurnitureItem, FurnitureDimensions } from "../types";
 import { inchesToPixels } from "../lib/measurement";
 import { getRoomDimensionsDisplay } from "../lib/room";
 import { getWallSegments, calculateOrthogonalArea } from "../lib/shape";
+import { FurnitureListRenderer } from "./furniture-renderer";
+import { useFurniturePlacement } from "../hooks/use-furniture-placement";
+import type { FurnitureConfig } from "../lib/furniture";
 
 interface CanvasProps {
   room: Room | null;
+  onFurnitureAdd?: (furniture: FurnitureItem) => void;
+  onFurnitureUpdate?: (furniture: FurnitureItem) => void;
+  onFurnitureRemove?: (furnitureId: string) => void;
 }
 
-export function EditorCanvas({ room }: CanvasProps) {
+export interface EditorCanvasRef {
+  startFurniturePlacement: (config: FurnitureConfig, dimensions: FurnitureDimensions) => void;
+  startFurnitureMoving: (furnitureId: string) => void;
+}
+
+export const EditorCanvas = forwardRef<EditorCanvasRef, CanvasProps>(function EditorCanvas({ 
+  room, 
+  onFurnitureAdd,
+  onFurnitureUpdate,
+  onFurnitureRemove
+}, ref) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [selectedFurnitureId, setSelectedFurnitureId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Furniture placement hook
+  const furniturePlacement = useFurniturePlacement({
+    room,
+    furniture: room?.furniture || [],
+    onFurnitureAdd: onFurnitureAdd || (() => {}),
+    onFurnitureUpdate: onFurnitureUpdate || (() => {}),
+    onFurnitureRemove: onFurnitureRemove || (() => {})
+  });
+
+  // Expose furniture placement function to parent via ref
+  useImperativeHandle(ref, () => ({
+    startFurniturePlacement: (config: FurnitureConfig, dimensions: FurnitureDimensions) => {
+      furniturePlacement.startPlacement(config, dimensions);
+    },
+    startFurnitureMoving: (furnitureId: string) => {
+      furniturePlacement.startMoving(furnitureId);
+    }
+  }), [furniturePlacement]);
 
   const minZoom = 0.5;  // 50%
   const maxZoom = 2.0;  // 200%
@@ -52,29 +88,39 @@ export function EditorCanvas({ room }: CanvasProps) {
   }, [zoom, pan]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only handle left mouse button for panning
-    if (e.button === 0) { // Left mouse button
+    // Only handle left mouse button for panning when not placing furniture
+    if (e.button === 0 && !furniturePlacement.isActive) { // Left mouse button
       setIsDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
-  }, [pan]);
+  }, [pan, furniturePlacement.isActive]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
+    if (isDragging && !furniturePlacement.isActive) {
       const newPan = {
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
       };
       setPan(newPan);
     }
-  }, [isDragging, dragStart]);
+    
+    // Handle furniture placement mouse movement
+    if (furniturePlacement.isActive && canvasRef.current) {
+      furniturePlacement.handleCanvasMouseMove(e.clientX, e.clientY, canvasRef.current, zoom, pan);
+    }
+  }, [isDragging, dragStart, furniturePlacement]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (isDragging) {
       setIsDragging(false);
       console.log("Stopped panning");
     }
-  }, [isDragging]);
+    
+    // Handle furniture placement clicks
+    if (furniturePlacement.isActive && canvasRef.current) {
+      furniturePlacement.handleCanvasClick(e.clientX, e.clientY, canvasRef.current, zoom, pan);
+    }
+  }, [isDragging, furniturePlacement]);
 
   const handleMouseLeave = useCallback(() => {
     setIsDragging(false);
@@ -115,7 +161,7 @@ export function EditorCanvas({ room }: CanvasProps) {
       onMouseLeave={handleMouseLeave}
 
       style={{
-        cursor: isDragging ? 'grabbing' : 'grab'
+        cursor: furniturePlacement.isActive ? 'crosshair' : (isDragging ? 'grabbing' : 'grab')
       }}
     >
       {/* Grid Background */}
@@ -173,6 +219,49 @@ export function EditorCanvas({ room }: CanvasProps) {
                 <div className="absolute top-2 left-2 text-sm text-slate-600 pointer-events-none bg-white/80 px-2 py-1 rounded">
                   {getRoomDimensionsDisplay(room).area}
                 </div>
+
+                {/* Furniture rendering */}
+                <svg
+                  width={inchesToPixels(room.boundingBox.widthInches)}
+                  height={inchesToPixels(room.boundingBox.heightInches)}
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ pointerEvents: furniturePlacement.isActive ? 'none' : 'auto' }}
+                >
+                  {/* Existing furniture (exclude the one being moved) */}
+                  <FurnitureListRenderer
+                    furniture={(room.furniture || []).filter(f => 
+                      !furniturePlacement.placementState.furnitureBeingPlaced || 
+                      f.id !== furniturePlacement.placementState.furnitureBeingPlaced.id
+                    )}
+                    selectedFurnitureId={selectedFurnitureId}
+                    placingFurnitureId={furniturePlacement.isPlacing ? furniturePlacement.placementState.furnitureBeingPlaced?.id : undefined}
+                    movingFurnitureId={furniturePlacement.isMoving ? furniturePlacement.placementState.furnitureBeingPlaced?.id : undefined}
+                    invalidFurnitureIds={new Set()}
+                    onFurnitureClick={(furnitureId) => {
+                      if (furniturePlacement.isActive) return;
+                      if (selectedFurnitureId === furnitureId) {
+                        // Double-click behavior: start moving
+                        furniturePlacement.handleFurnitureClick(furnitureId);
+                      } else {
+                        // Single-click: select
+                        setSelectedFurnitureId(furnitureId);
+                      }
+                    }}
+                    onFurnitureDoubleClick={(furnitureId) => {
+                      furniturePlacement.handleFurnitureClick(furnitureId);
+                    }}
+                  />
+                  
+                  {/* Furniture being placed */}
+                  {furniturePlacement.placementState.furnitureBeingPlaced && (
+                    <FurnitureListRenderer
+                      furniture={[furniturePlacement.placementState.furnitureBeingPlaced]}
+                      placingFurnitureId={furniturePlacement.isPlacing ? furniturePlacement.placementState.furnitureBeingPlaced.id : undefined}
+                      movingFurnitureId={furniturePlacement.isMoving ? furniturePlacement.placementState.furnitureBeingPlaced.id : undefined}
+                      invalidFurnitureIds={furniturePlacement.placementState.isValidPlacement ? new Set() : new Set([furniturePlacement.placementState.furnitureBeingPlaced.id])}
+                    />
+                  )}
+                </svg>
               </div>
               
               {/* Doors */}
@@ -331,13 +420,35 @@ export function EditorCanvas({ room }: CanvasProps) {
         </div>
       </div>
 
+      {/* Furniture placement status */}
+      {furniturePlacement.isActive && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md px-4 py-2 text-sm shadow-md z-20">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${furniturePlacement.isPlacing ? 'bg-blue-500' : 'bg-orange-500'}`}></span>
+              <span className="text-slate-700 font-medium">
+                {furniturePlacement.isPlacing ? 'Placing' : 'Moving'} {furniturePlacement.placementState.furnitureBeingPlaced?.name || 'furniture'}
+              </span>
+            </span>
+            {!furniturePlacement.placementState.isValidPlacement && (
+              <span className="text-red-600 text-xs">
+                ⚠ {furniturePlacement.placementState.placementReasons[0]}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Click to place • ← → to rotate • ESC to cancel
+          </div>
+        </div>
+      )}
+
       {/* Zoom indicator */}
       <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md px-3 py-1 text-sm text-slate-600 shadow-md">
         {Math.round(zoom * 100)}%
       </div>
     </div>
   );
-}
+});
 
 // Helper function to create SVG arc path for canvas
 function createCanvasArcPath(centerX: number, centerY: number, radius: number, startAngle: number, arcAngle: number): string {

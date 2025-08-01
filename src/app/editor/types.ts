@@ -3,6 +3,30 @@ export interface Point {
   y: number; // inches from room origin
 }
 
+export interface FurnitureDimensions {
+  width: number;  // inches
+  height: number; // inches
+  depth?: number; // inches (for 3D representation hints)
+}
+
+export type FurnitureType = 'desk' | 'table' | 'couch';
+
+export type FurnitureSubtype =
+  | 'rectangular-desk' | 'l-shaped-desk'
+  | 'rectangular-table'
+  | 'rectangular-couch' | 'l-shaped-couch';
+
+export interface FurnitureItem {
+  id: string;
+  type: FurnitureType;
+  subtype: FurnitureSubtype;
+  name: string;
+  position: Point; // Position relative to room origin (inches)
+  rotation: number; // Rotation in degrees (0, 90, 180, 270)
+  dimensions: FurnitureDimensions;
+  color: string;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -10,6 +34,7 @@ export interface Room {
   y: number;          // Canvas position (not used in single-room mode)
   color: string;
   doors: Door[];      // Array of doors on this room
+  furniture: FurnitureItem[]; // Array of furniture items in this room
   
   // Unified representation for all shapes (Box, L, U, T)
   vertices: Point[];   // Ordered vertices (clockwise), all angles are 90°

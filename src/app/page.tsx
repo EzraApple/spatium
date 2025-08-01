@@ -5,14 +5,21 @@ import { useRouter } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Grid3X3, Users, MousePointer } from "lucide-react";
+import { AccountDropdown } from "~/components/account-dropdown";
+import { useAuth } from "~/hooks/use-auth";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
   const handleCreateLayout = () => {
     console.log("Navigating to editor");
-    router.push("/editor");
+    if (isAuthenticated) {
+      router.push("/editor/new");
+    } else {
+      router.push("/editor/new");
+    }
   };
 
   useEffect(() => {
@@ -37,13 +44,21 @@ export default function Home() {
       <header className="relative z-20 w-full px-4 py-4">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold">Spatium</h1>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push("/auth")}
-            className="flex items-center gap-2"
-          >
-            Sign In
-          </Button>
+          {!isLoading && (
+            <>
+              {isAuthenticated ? (
+                <AccountDropdown />
+              ) : (
+                <Button 
+                  variant="outline" 
+                  onClick={() => router.push("/auth")}
+                  className="flex items-center gap-2"
+                >
+                  Sign In
+                </Button>
+              )}
+            </>
+          )}
         </div>
       </header>
 
