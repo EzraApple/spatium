@@ -2,6 +2,6 @@
   "$schema": "https://www.partykit.io/schema.json",
   "name": "spatium-party",
   "main": "src/server.ts",
-  "compatibilityDate": "2024-12-06"
+  "compatibilityDate": "2024-12-06",
+  "port": 1999
 }
-

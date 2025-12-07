@@ -1,6 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
+
+    --blueprint: 214 100% 97%;
+    --blueprint-light: 214 100% 99%;
+    --blueprint-grid: 214 40% 88%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
 
 * {
   margin: 0;
@@ -15,6 +54,9 @@ body,
   height: 100%;
   overflow: hidden;
   font-family: "Instrument Sans", sans-serif;
+}
+
+.cursor-hidden {
   cursor: none;
 }
 
@@ -45,3 +87,18 @@ body,
   animation: ripple-expand 0.6s ease-out 0.1s forwards;
 }
 
+.grid-blueprint {
+  background-image:
+    linear-gradient(hsl(var(--blueprint-grid)) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--blueprint-grid)) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.grid-blueprint-large {
+  background-image:
+    linear-gradient(hsl(var(--blueprint-grid) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--blueprint-grid) / 0.5) 1px, transparent 1px),
+    linear-gradient(hsl(var(--blueprint-grid)) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--blueprint-grid)) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+}

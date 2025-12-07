@@ -16,3 +16,8 @@ export type ClientState = {
   y: number
 }
 
+export type Layout = {
+  id: string
+  name: string
+  roomCode: string
+}

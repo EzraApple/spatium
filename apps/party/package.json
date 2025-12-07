@@ -6,14 +6,20 @@
   "scripts": {
     "dev": "partykit dev",
     "deploy": "partykit deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push"
   },
   "dependencies": {
     "@apartment-planner/shared": "workspace:*",
+    "@neondatabase/serverless": "^0.10.4",
     "partykit": "^0.0.111"
   },
   "devDependencies": {
+    "@prisma/client": "^6.1.0",
+    "@types/node": "^22.10.2",
+    "prisma": "^6.1.0",
     "typescript": "^5.7.2"
   }
 }
-

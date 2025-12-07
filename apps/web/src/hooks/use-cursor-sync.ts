@@ -17,7 +17,7 @@ export type ClickEvent = {
   color: string
 }
 
-export function useCursorSync() {
+export function useCursorSync(roomId?: string) {
   const [cursors, setCursors] = useState<Record<string, ClientState>>({})
   const [clicks, setClicks] = useState<ClickEvent[]>([])
   const [status, setStatus] = useState<ConnectionStatus>("connecting")
@@ -27,9 +27,14 @@ export function useCursorSync() {
   const myIdRef = useRef<string | null>(null)
 
   useEffect(() => {
+    if (!roomId) {
+      setStatus("disconnected")
+      return
+    }
+
     const socket = new PartySocket({
       host: env.PARTYKIT_HOST,
-      room: "main",
+      room: roomId,
     })
 
     socketRef.current = socket
@@ -83,8 +88,13 @@ export function useCursorSync() {
 
     return () => {
       socket.close()
+      socketRef.current = null
+      setCursors({})
+      setClicks([])
+      setMyColor(null)
+      myIdRef.current = null
     }
-  }, [])
+  }, [roomId])
 
   const sendCursorMove = useCallback((x: number, y: number) => {
     const now = Date.now()
@@ -124,4 +134,3 @@ export function useCursorSync() {
     sendClick,
   }
 }
-

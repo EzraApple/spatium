@@ -4,7 +4,10 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "db:migrate": "pnpm --filter party db:migrate",
+    "db:generate": "pnpm --filter party db:generate",
+    "db:push": "pnpm --filter party db:push"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
@@ -12,4 +15,3 @@
   },
   "packageManager": "pnpm@9.14.4"
 }
-
