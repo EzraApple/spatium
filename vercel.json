@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm --filter web build && cp -r apps/web/dist dist",
+  "buildCommand": "pnpm --filter web build",
   "installCommand": "pnpm install",
-  "outputDirectory": "dist"
+  "outputDirectory": "apps/web/dist"
 }
 
