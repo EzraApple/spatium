@@ -1,6 +1,7 @@
 {
-  "buildCommand": "pnpm --filter web build",
-  "installCommand": "pnpm install",
-  "outputDirectory": "apps/web/dist"
+  "buildCommand": "cd ../.. && pnpm --filter web build",
+  "installCommand": "cd ../.. && pnpm install",
+  "outputDirectory": "dist",
+  "rootDirectory": "apps/web"
 }
 
