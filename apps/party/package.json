@@ -1,0 +1,19 @@
+{
+  "name": "party",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "partykit dev",
+    "deploy": "partykit deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@apartment-planner/shared": "workspace:*",
+    "partykit": "^0.0.111"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
+

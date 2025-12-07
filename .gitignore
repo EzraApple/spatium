@@ -1,0 +1,11 @@
+node_modules
+dist
+.turbo
+.partykit
+.env
+.env.*
+.DS_Store
+*.log
+.vscode
+.idea
+
