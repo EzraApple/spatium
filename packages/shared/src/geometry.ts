@@ -323,3 +323,138 @@ export function findSnapPosition(
   return null
 }
 
+export function closestPointOnSegment(point: Point, segStart: Point, segEnd: Point): Point {
+  const dx = segEnd.x - segStart.x
+  const dy = segEnd.y - segStart.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    return { x: segStart.x, y: segStart.y }
+  }
+
+  let t = ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lengthSquared
+  t = Math.max(0, Math.min(1, t))
+
+  return {
+    x: segStart.x + t * dx,
+    y: segStart.y + t * dy,
+  }
+}
+
+function segmentToSegmentDistance(
+  a1: Point,
+  a2: Point,
+  b1: Point,
+  b2: Point
+): { distance: number; pointOnA: Point; pointOnB: Point } {
+  const candidates: { distance: number; pointOnA: Point; pointOnB: Point }[] = []
+
+  const a1OnB = closestPointOnSegment(a1, b1, b2)
+  candidates.push({
+    distance: Math.sqrt((a1.x - a1OnB.x) ** 2 + (a1.y - a1OnB.y) ** 2),
+    pointOnA: a1,
+    pointOnB: a1OnB,
+  })
+
+  const a2OnB = closestPointOnSegment(a2, b1, b2)
+  candidates.push({
+    distance: Math.sqrt((a2.x - a2OnB.x) ** 2 + (a2.y - a2OnB.y) ** 2),
+    pointOnA: a2,
+    pointOnB: a2OnB,
+  })
+
+  const b1OnA = closestPointOnSegment(b1, a1, a2)
+  candidates.push({
+    distance: Math.sqrt((b1.x - b1OnA.x) ** 2 + (b1.y - b1OnA.y) ** 2),
+    pointOnA: b1OnA,
+    pointOnB: b1,
+  })
+
+  const b2OnA = closestPointOnSegment(b2, a1, a2)
+  candidates.push({
+    distance: Math.sqrt((b2.x - b2OnA.x) ** 2 + (b2.y - b2OnA.y) ** 2),
+    pointOnA: b2OnA,
+    pointOnB: b2,
+  })
+
+  return candidates.reduce((min, curr) => (curr.distance < min.distance ? curr : min))
+}
+
+export type DistanceMeasurement = {
+  distance: number
+  furniturePoint: Point
+  obstaclePoint: Point
+  obstacleType: "wall" | "furniture"
+  obstacleName: string
+}
+
+export function findNearestDistances(
+  furnitureVertices: Point[],
+  roomWallVertices: Point[],
+  otherFurniture: { vertices: Point[]; name: string }[],
+  count: number = 2
+): DistanceMeasurement[] {
+  const measurements: DistanceMeasurement[] = []
+
+  for (let i = 0; i < furnitureVertices.length; i++) {
+    const fStart = furnitureVertices[i]
+    const fEnd = furnitureVertices[(i + 1) % furnitureVertices.length]
+
+    for (let j = 0; j < roomWallVertices.length; j++) {
+      const wStart = roomWallVertices[j]
+      const wEnd = roomWallVertices[(j + 1) % roomWallVertices.length]
+
+      const result = segmentToSegmentDistance(fStart, fEnd, wStart, wEnd)
+      measurements.push({
+        distance: result.distance,
+        furniturePoint: result.pointOnA,
+        obstaclePoint: result.pointOnB,
+        obstacleType: "wall",
+        obstacleName: "Wall",
+      })
+    }
+  }
+
+  for (const other of otherFurniture) {
+    for (let i = 0; i < furnitureVertices.length; i++) {
+      const fStart = furnitureVertices[i]
+      const fEnd = furnitureVertices[(i + 1) % furnitureVertices.length]
+
+      for (let j = 0; j < other.vertices.length; j++) {
+        const oStart = other.vertices[j]
+        const oEnd = other.vertices[(j + 1) % other.vertices.length]
+
+        const result = segmentToSegmentDistance(fStart, fEnd, oStart, oEnd)
+        measurements.push({
+          distance: result.distance,
+          furniturePoint: result.pointOnA,
+          obstaclePoint: result.pointOnB,
+          obstacleType: "furniture",
+          obstacleName: other.name,
+        })
+      }
+    }
+  }
+
+  measurements.sort((a, b) => a.distance - b.distance)
+
+  const selected: DistanceMeasurement[] = []
+  for (const m of measurements) {
+    if (m.distance < 1) continue
+
+    const isDuplicate = selected.some((s) => {
+      const sameDirection =
+        Math.abs(s.furniturePoint.x - s.obstaclePoint.x - (m.furniturePoint.x - m.obstaclePoint.x)) < 1 &&
+        Math.abs(s.furniturePoint.y - s.obstaclePoint.y - (m.furniturePoint.y - m.obstaclePoint.y)) < 1
+      return sameDirection
+    })
+
+    if (!isDuplicate) {
+      selected.push(m)
+      if (selected.length >= count) break
+    }
+  }
+
+  return selected
+}
+

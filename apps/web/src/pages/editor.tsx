@@ -302,7 +302,6 @@ export function EditorPage() {
               onCursorModeChange={setCursorMode}
               checkRoomCollision={checkRoomCollision}
               checkFurnitureCollision={checkFurnitureCollision}
-              expandedRoomIds={expandedRoomIds}
             />
 
             {contextMenu && (

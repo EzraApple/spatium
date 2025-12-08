@@ -361,6 +361,22 @@ export function useCanvasInteraction({
   const endDrag = useCallback(() => {
     if (mode.type !== "dragging") return
 
+    if (mode.entityType === "furniture") {
+      const f = furniture.find((item) => item.id === mode.entityId)
+      if (f) {
+        const isColliding = checkFurnitureCollision(f.id, f.position, f.roomId)
+        if (isColliding) {
+          const originalRoom = furniture.find((item) => item.id === mode.entityId)
+          const originalRoomId = originalRoom?.roomId ?? f.roomId
+          onFurnitureMove(mode.entityId, mode.originalPosition, originalRoomId)
+          onFurnitureMoveThrottled(mode.entityId, mode.originalPosition, originalRoomId)
+          pendingPositionRef.current = null
+          setMode({ type: "idle" })
+          return
+        }
+      }
+    }
+
     if (pendingPositionRef.current) {
       if (mode.entityType === "room") {
         onRoomMoveThrottled(mode.entityId, pendingPositionRef.current.position)
@@ -375,7 +391,7 @@ export function useCanvasInteraction({
     }
 
     setMode({ type: "idle" })
-  }, [mode, onRoomMoveThrottled, onFurnitureMoveThrottled])
+  }, [mode, furniture, checkFurnitureCollision, onFurnitureMove, onRoomMoveThrottled, onFurnitureMoveThrottled])
 
   const cancelDrag = useCallback(() => {
     if (mode.type !== "dragging") return

@@ -1,8 +1,9 @@
-import { useRef, useState, useCallback, useEffect } from "react"
+import { useRef, useState, useCallback, useEffect, useMemo } from "react"
 import type { RoomEntity, FurnitureEntity, Point } from "@apartment-planner/shared"
-import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle } from "@apartment-planner/shared"
+import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle, findNearestDistances } from "@apartment-planner/shared"
 import { RoomPolygon } from "@/components/room-polygon"
 import { FurnitureShape } from "@/components/furniture-shape"
+import { DistanceIndicator } from "@/components/distance-indicator"
 
 export type CursorMode = "grab" | "grabbing" | "pointer"
 
@@ -21,7 +22,6 @@ type RoomCanvasProps = {
   onCursorModeChange: (mode: CursorMode) => void
   checkRoomCollision: (roomId: string, position: Point) => boolean
   checkFurnitureCollision: (furnitureId: string, position: Point, roomId: string) => boolean
-  expandedRoomIds: Set<string>
 }
 
 const GRID_SIZE = 24
@@ -42,7 +42,6 @@ export function RoomCanvas({
   onCursorModeChange,
   checkRoomCollision,
   checkFurnitureCollision,
-  expandedRoomIds,
 }: RoomCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [viewBox, setViewBox] = useState({ x: -500, y: -500, width: 2000, height: 1500 })
@@ -143,8 +142,6 @@ export function RoomCanvas({
   const hitTestFurniture = useCallback(
     (worldPos: Point): FurnitureEntity | null => {
       for (const f of furniture) {
-        if (!expandedRoomIds.has(f.roomId)) continue
-        
         const room = rooms.find((r) => r.id === f.roomId)
         if (!room) continue
 
@@ -173,7 +170,7 @@ export function RoomCanvas({
       }
       return null
     },
-    [furniture, rooms, expandedRoomIds]
+    [furniture, rooms]
   )
 
   const hitTestRoom = useCallback(
@@ -313,7 +310,47 @@ export function RoomCanvas({
 
   const pixelScale = svgRef.current ? viewBox.width / svgRef.current.clientWidth : 1
 
-  const visibleFurniture = furniture.filter((f) => expandedRoomIds.has(f.roomId))
+  const visibleFurniture = furniture
+
+  const distanceMeasurements = useMemo(() => {
+    if (!draggingFurnitureId) return []
+
+    const draggedFurniture = furniture.find((f) => f.id === draggingFurnitureId)
+    if (!draggedFurniture) return []
+
+    const room = rooms.find((r) => r.id === draggedFurniture.roomId)
+    if (!room) return []
+
+    const absolutePos = {
+      x: room.position.x + draggedFurniture.position.x,
+      y: room.position.y + draggedFurniture.position.y,
+    }
+
+    const furnitureVerts = getAbsoluteVertices(
+      furnitureShapeToVertices(draggedFurniture.shapeTemplate),
+      absolutePos
+    )
+
+    const roomWallVerts = getAbsoluteVertices(room.vertices, room.position)
+
+    const allVertsInsideRoom = furnitureVerts.every((v) => pointInPolygon(v, roomWallVerts))
+    if (!allVertsInsideRoom) return []
+
+    const otherFurnitureData = furniture
+      .filter((f) => f.id !== draggingFurnitureId && f.roomId === draggedFurniture.roomId)
+      .map((f) => {
+        const otherAbsPos = {
+          x: room.position.x + f.position.x,
+          y: room.position.y + f.position.y,
+        }
+        return {
+          vertices: getAbsoluteVertices(furnitureShapeToVertices(f.shapeTemplate), otherAbsPos),
+          name: f.name,
+        }
+      })
+
+    return findNearestDistances(furnitureVerts, roomWallVerts, otherFurnitureData, 2)
+  }, [draggingFurnitureId, furniture, rooms])
 
   return (
     <svg
@@ -397,6 +434,17 @@ export function RoomCanvas({
           />
         )
       })}
+
+      {distanceMeasurements.map((m, i) => (
+        <DistanceIndicator
+          key={i}
+          from={m.furniturePoint}
+          to={m.obstaclePoint}
+          distanceInEighths={Math.round(m.distance)}
+          scale={scale}
+          pixelScale={pixelScale}
+        />
+      ))}
     </svg>
   )
 }
