@@ -7,10 +7,8 @@ type RoomPolygonProps = {
   scale: number
   pixelScale: number
   isSelected: boolean
-  isMoving: boolean
+  isDragging: boolean
   isColliding: boolean
-  onClick: () => void
-  onContextMenu: (e: React.MouseEvent) => void
 }
 
 function getWallMidpoint(wall: WallSegment): Point {
@@ -47,10 +45,8 @@ export function RoomPolygon({
   scale,
   pixelScale,
   isSelected,
-  isMoving,
+  isDragging,
   isColliding,
-  onClick,
-  onContextMenu,
 }: RoomPolygonProps) {
   const scaledVertices = room.vertices.map((v) => ({
     x: (v.x + room.position.x) * scale,
@@ -80,9 +76,7 @@ export function RoomPolygon({
 
   return (
     <g
-      className={cn("transition-opacity", isMoving && "opacity-80")}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
+      className={cn("transition-opacity", isDragging && "opacity-80")}
     >
       <path
         d={pathData}

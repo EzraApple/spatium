@@ -39,7 +39,44 @@ export type RoomEntity = {
   shapeTemplate: ShapeTemplate
 }
 
-export type Entity = RoomEntity
+export type FurnitureType = "square-table" | "circle-table" | "rectangle-desk" | "l-shaped-desk"
+
+export type RectangleFurnitureTemplate = {
+  type: "rectangle"
+  width: number
+  height: number
+}
+
+export type CircleFurnitureTemplate = {
+  type: "circle"
+  radius: number
+}
+
+export type LShapedFurnitureTemplate = {
+  type: "l-shaped"
+  width: number
+  height: number
+  cutWidth: number
+  cutHeight: number
+  cutCorner: Corner
+}
+
+export type FurnitureShapeTemplate =
+  | RectangleFurnitureTemplate
+  | CircleFurnitureTemplate
+  | LShapedFurnitureTemplate
+
+export type FurnitureEntity = {
+  type: "furniture"
+  id: string
+  name: string
+  furnitureType: FurnitureType
+  roomId: string
+  position: Point
+  shapeTemplate: FurnitureShapeTemplate
+}
+
+export type Entity = RoomEntity | FurnitureEntity
 
 export type LayoutDocument = {
   version: 1

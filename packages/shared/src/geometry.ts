@@ -1,4 +1,4 @@
-import type { Point, ShapeTemplate, WallSegment } from "./entities"
+import type { Point, ShapeTemplate, FurnitureShapeTemplate, WallSegment } from "./entities"
 
 export function shapeToVertices(template: ShapeTemplate): Point[] {
   switch (template.type) {
@@ -20,6 +20,35 @@ export function shapeToVertices(template: ShapeTemplate): Point[] {
         template.bevelCorner
       )
   }
+}
+
+export function furnitureShapeToVertices(template: FurnitureShapeTemplate): Point[] {
+  switch (template.type) {
+    case "rectangle":
+      return rectangleToVertices(template.width, template.height)
+    case "circle":
+      return circleToVertices(template.radius)
+    case "l-shaped":
+      return lShapedToVertices(
+        template.width,
+        template.height,
+        template.cutWidth,
+        template.cutHeight,
+        template.cutCorner
+      )
+  }
+}
+
+function circleToVertices(radius: number, segments: number = 32): Point[] {
+  const vertices: Point[] = []
+  for (let i = 0; i < segments; i++) {
+    const angle = (i / segments) * Math.PI * 2
+    vertices.push({
+      x: radius + Math.cos(angle) * radius,
+      y: radius + Math.sin(angle) * radius,
+    })
+  }
+  return vertices
 }
 
 function rectangleToVertices(width: number, height: number): Point[] {
@@ -186,6 +215,69 @@ export function polygonsIntersect(polyA: Point[], polyB: Point[]): boolean {
 
   return false
 }
+
+export function pointInCircle(point: Point, center: Point, radius: number): boolean {
+  const dx = point.x - center.x
+  const dy = point.y - center.y
+  return dx * dx + dy * dy <= radius * radius
+}
+
+export function circlesIntersect(
+  center1: Point,
+  radius1: number,
+  center2: Point,
+  radius2: number
+): boolean {
+  const dx = center2.x - center1.x
+  const dy = center2.y - center1.y
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  return distance < radius1 + radius2
+}
+
+export function circlePolygonIntersect(center: Point, radius: number, polygon: Point[]): boolean {
+  if (pointInPolygon(center, polygon)) {
+    return true
+  }
+
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i]
+    const p2 = polygon[(i + 1) % polygon.length]
+    if (pointToSegmentDistance(center, p1, p2) < radius) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function pointToSegmentDistance(point: Point, segStart: Point, segEnd: Point): number {
+  const dx = segEnd.x - segStart.x
+  const dy = segEnd.y - segStart.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    const pdx = point.x - segStart.x
+    const pdy = point.y - segStart.y
+    return Math.sqrt(pdx * pdx + pdy * pdy)
+  }
+
+  let t = ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lengthSquared
+  t = Math.max(0, Math.min(1, t))
+
+  const projX = segStart.x + t * dx
+  const projY = segStart.y + t * dy
+  const distX = point.x - projX
+  const distY = point.y - projY
+
+  return Math.sqrt(distX * distX + distY * distY)
+}
+
+export function isPointInRoom(point: Point, roomVertices: Point[], roomPosition: Point): boolean {
+  const absoluteVertices = getAbsoluteVertices(roomVertices, roomPosition)
+  return pointInPolygon(point, absoluteVertices)
+}
+
+export { pointInPolygon }
 
 export function findSnapPosition(
   movingRoom: { vertices: Point[]; position: Point },

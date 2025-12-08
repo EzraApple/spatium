@@ -1,5 +1,6 @@
-import { Plus } from "lucide-react"
-import type { RoomEntity } from "@apartment-planner/shared"
+import { useState, useRef, useEffect } from "react"
+import { Plus, ChevronRight, Circle, Square } from "lucide-react"
+import type { RoomEntity, FurnitureEntity } from "@apartment-planner/shared"
 import {
   Sidebar,
   SidebarContent,
@@ -8,36 +9,88 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu"
+import { Input } from "@/components/ui/input"
 import { getRoomShapeIcon } from "@/components/room-shape-icons"
+import { cn } from "@/lib/utils"
 
 type RoomSidebarProps = {
   rooms: RoomEntity[]
-  selectedRoomId: string | null
-  onRoomSelect: (id: string) => void
+  furniture: FurnitureEntity[]
+  selectedId: string | null
+  selectedType: "room" | "furniture" | null
+  expandedRoomIds: Set<string>
+  onToggleExpanded: (roomId: string) => void
   onAddRoom: () => void
-  onEditRoom: (id: string) => void
-  onDeleteRoom: (id: string) => void
+  onAddFurniture: (roomId: string) => void
+  onRoomNameChange: (roomId: string, name: string) => void
+  onSelectFurniture: (furnitureId: string) => void
+}
+
+function getFurnitureIcon(furnitureType: FurnitureEntity["furnitureType"]) {
+  if (furnitureType === "circle-table") {
+    return Circle
+  }
+  return Square
 }
 
 export function RoomSidebar({
   rooms,
-  selectedRoomId,
-  onRoomSelect,
+  furniture,
+  selectedId,
+  selectedType,
+  expandedRoomIds,
+  onToggleExpanded,
   onAddRoom,
-  onEditRoom,
-  onDeleteRoom,
+  onAddFurniture,
+  onRoomNameChange,
+  onSelectFurniture,
 }: RoomSidebarProps) {
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingRoomId && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingRoomId])
+
+  const handleDoubleClick = (room: RoomEntity) => {
+    setEditingRoomId(room.id)
+    setEditingName(room.name)
+  }
+
+  const handleNameSubmit = () => {
+    if (editingRoomId && editingName.trim()) {
+      onRoomNameChange(editingRoomId, editingName.trim())
+    }
+    setEditingRoomId(null)
+    setEditingName("")
+  }
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleNameSubmit()
+    } else if (e.key === "Escape") {
+      setEditingRoomId(null)
+      setEditingName("")
+    }
+  }
+
+  const getFurnitureByRoom = (roomId: string) => {
+    return furniture.filter((f) => f.roomId === roomId)
+  }
+
   return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border">
+    <Sidebar collapsible="none" className="border-r border-sidebar-border cursor-hidden">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Rooms</SidebarGroupLabel>
@@ -53,31 +106,71 @@ export function RoomSidebar({
               )}
               {rooms.map((room) => {
                 const Icon = getRoomShapeIcon(room.shapeTemplate.type)
+                const isExpanded = expandedRoomIds.has(room.id)
+                const roomFurniture = getFurnitureByRoom(room.id)
+
                 return (
-                  <ContextMenu key={room.id}>
-                    <ContextMenuTrigger asChild>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton
-                          isActive={selectedRoomId === room.id}
-                          onClick={() => onRoomSelect(room.id)}
-                        >
-                          <Icon className="size-4" />
-                          <span>{room.name}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => onEditRoom(room.id)}>
-                        Edit Dimensions
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        onClick={() => onDeleteRoom(room.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        Delete Room
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
+                  <SidebarMenuItem key={room.id}>
+                    <SidebarMenuButton
+                      isActive={selectedType === "room" && selectedId === room.id}
+                      onClick={() => onToggleExpanded(room.id)}
+                      onDoubleClick={() => handleDoubleClick(room)}
+                    >
+                      <ChevronRight
+                        className={cn(
+                          "size-4 shrink-0 transition-transform",
+                          isExpanded && "rotate-90"
+                        )}
+                      />
+                      <Icon className="size-4 shrink-0" />
+                      {editingRoomId === room.id ? (
+                        <Input
+                          ref={inputRef}
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onBlur={handleNameSubmit}
+                          onKeyDown={handleNameKeyDown}
+                          className="h-5 px-1 py-0 text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="truncate">{room.name}</span>
+                      )}
+                    </SidebarMenuButton>
+                    <SidebarMenuAction
+                      onClick={() => onAddFurniture(room.id)}
+                      title="Add furniture"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </SidebarMenuAction>
+
+                    {isExpanded && roomFurniture.length > 0 && (
+                      <SidebarMenuSub>
+                        {roomFurniture.map((f) => {
+                          const FurnitureIcon = getFurnitureIcon(f.furnitureType)
+                          return (
+                            <SidebarMenuSubItem key={f.id}>
+                              <SidebarMenuSubButton
+                                isActive={selectedType === "furniture" && selectedId === f.id}
+                                onClick={() => onSelectFurniture(f.id)}
+                              >
+                                <FurnitureIcon className="size-3" />
+                                <span className="truncate">{f.name}</span>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
+                      </SidebarMenuSub>
+                    )}
+
+                    {isExpanded && roomFurniture.length === 0 && (
+                      <SidebarMenuSub>
+                        <div className="px-2 py-2 text-xs text-muted-foreground">
+                          No furniture. Click + to add.
+                        </div>
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
                 )
               })}
             </SidebarMenu>
@@ -87,4 +180,3 @@ export function RoomSidebar({
     </Sidebar>
   )
 }
-

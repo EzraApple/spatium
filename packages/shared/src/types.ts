@@ -1,4 +1,4 @@
-import type { RoomEntity, LayoutDocument, Point } from "./entities"
+import type { RoomEntity, FurnitureEntity, LayoutDocument, Point } from "./entities"
 
 export type ClientMessage =
   | { type: "cursor-move"; x: number; y: number }
@@ -8,6 +8,10 @@ export type ClientMessage =
   | { type: "room-update"; room: RoomEntity }
   | { type: "room-delete"; roomId: string }
   | { type: "room-move"; roomId: string; position: Point }
+  | { type: "furniture-add"; furniture: FurnitureEntity }
+  | { type: "furniture-update"; furniture: FurnitureEntity }
+  | { type: "furniture-delete"; furnitureId: string }
+  | { type: "furniture-move"; furnitureId: string; position: Point; roomId: string }
 
 export type ServerMessage =
   | { type: "sync"; clients: Record<string, ClientState> }
@@ -20,6 +24,10 @@ export type ServerMessage =
   | { type: "room-updated"; room: RoomEntity; clientId: string }
   | { type: "room-deleted"; roomId: string; clientId: string }
   | { type: "room-moved"; roomId: string; position: Point; clientId: string }
+  | { type: "furniture-added"; furniture: FurnitureEntity; clientId: string }
+  | { type: "furniture-updated"; furniture: FurnitureEntity; clientId: string }
+  | { type: "furniture-deleted"; furnitureId: string; clientId: string }
+  | { type: "furniture-moved"; furnitureId: string; position: Point; roomId: string; clientId: string }
 
 export type ClientState = {
   color: string

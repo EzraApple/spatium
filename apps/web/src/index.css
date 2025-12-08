@@ -74,8 +74,9 @@ body,
   font-family: "Instrument Sans", sans-serif;
 }
 
-.cursor-hidden {
-  cursor: none;
+.cursor-hidden,
+.cursor-hidden * {
+  cursor: none !important;
 }
 
 @keyframes ripple-expand {

@@ -1,46 +1,68 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import type { RoomEntity, Point } from "@apartment-planner/shared"
+import type { RoomEntity, FurnitureEntity, Point } from "@apartment-planner/shared"
 import {
   getAbsoluteVertices,
   polygonsIntersect,
   findSnapPosition,
+  pointInPolygon,
+  furnitureShapeToVertices,
+  circlesIntersect,
+  circlePolygonIntersect,
 } from "@apartment-planner/shared"
+
+type SelectionType = "room" | "furniture" | null
 
 type InteractionMode =
   | { type: "idle" }
-  | { type: "moving"; roomId: string; originalPosition: Point }
+  | { type: "dragging"; entityType: "room" | "furniture"; entityId: string; originalPosition: Point; startMousePos: Point }
 
 type UseCanvasInteractionProps = {
   rooms: RoomEntity[]
+  furniture: FurnitureEntity[]
   onRoomMove: (roomId: string, position: Point) => void
   onRoomMoveThrottled: (roomId: string, position: Point) => void
+  onFurnitureMove: (furnitureId: string, position: Point, roomId: string) => void
+  onFurnitureMoveThrottled: (furnitureId: string, position: Point, roomId: string) => void
   gridSize?: number
   snapThreshold?: number
 }
 
 const THROTTLE_MS = 50
 const NUDGE_AMOUNT = 96
+const DRAG_THRESHOLD = 5
 
 export function useCanvasInteraction({
   rooms,
+  furniture,
   onRoomMove,
   onRoomMoveThrottled,
+  onFurnitureMove,
+  onFurnitureMoveThrottled,
   gridSize = 24,
   snapThreshold = 96,
 }: UseCanvasInteractionProps) {
   const [mode, setMode] = useState<InteractionMode>({ type: "idle" })
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState<SelectionType>(null)
   const lastSyncRef = useRef<number>(0)
-  const pendingPositionRef = useRef<Point | null>(null)
+  const pendingPositionRef = useRef<{ position: Point; roomId?: string } | null>(null)
+  const hasDraggedRef = useRef(false)
 
-  const movingRoomId = mode.type === "moving" ? mode.roomId : null
+  const isDragging = mode.type === "dragging"
+  const draggingRoomId = mode.type === "dragging" && mode.entityType === "room" ? mode.entityId : null
+  const draggingFurnitureId = mode.type === "dragging" && mode.entityType === "furniture" ? mode.entityId : null
 
-  const getMovingRoom = useCallback(() => {
-    if (mode.type !== "moving") return null
-    return rooms.find((r) => r.id === mode.roomId) ?? null
-  }, [mode, rooms])
+  const getSelectedRoom = useCallback(() => {
+    if (selectedType !== "room" || !selectedId) return null
+    return rooms.find((r) => r.id === selectedId) ?? null
+  }, [selectedType, selectedId, rooms])
 
-  const checkCollision = useCallback(
+  const getSelectedFurniture = useCallback(() => {
+    if (selectedType !== "furniture" || !selectedId) return null
+    return furniture.find((f) => f.id === selectedId) ?? null
+  }, [selectedType, selectedId, furniture])
+
+  const checkRoomCollision = useCallback(
     (roomId: string, position: Point): boolean => {
       const room = rooms.find((r) => r.id === roomId)
       if (!room) return false
@@ -54,6 +76,132 @@ export function useCanvasInteraction({
         }
       }
       return false
+    },
+    [rooms]
+  )
+
+  const getFurnitureCenter = useCallback((f: FurnitureEntity, room: RoomEntity): Point => {
+    if (f.shapeTemplate.type === "circle") {
+      return {
+        x: room.position.x + f.position.x + f.shapeTemplate.radius,
+        y: room.position.y + f.position.y + f.shapeTemplate.radius,
+      }
+    }
+    const vertices = furnitureShapeToVertices(f.shapeTemplate)
+    const centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length
+    const centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length
+    return {
+      x: room.position.x + f.position.x + centerX,
+      y: room.position.y + f.position.y + centerY,
+    }
+  }, [])
+
+  const checkFurnitureCollision = useCallback(
+    (furnitureId: string, position: Point, roomId: string): boolean => {
+      const f = furniture.find((item) => item.id === furnitureId)
+      const room = rooms.find((r) => r.id === roomId)
+      if (!f || !room) return true
+
+      const absolutePos = {
+        x: room.position.x + position.x,
+        y: room.position.y + position.y,
+      }
+
+      if (f.shapeTemplate.type === "circle") {
+        const center = {
+          x: absolutePos.x + f.shapeTemplate.radius,
+          y: absolutePos.y + f.shapeTemplate.radius,
+        }
+        const roomVertices = getAbsoluteVertices(room.vertices, room.position)
+        
+        const innerCheck = furnitureShapeToVertices(f.shapeTemplate).every((v) => {
+          const absV = { x: absolutePos.x + v.x, y: absolutePos.y + v.y }
+          return pointInPolygon(absV, roomVertices)
+        })
+        if (!innerCheck) return true
+
+        for (const other of furniture) {
+          if (other.id === furnitureId) continue
+          const otherRoom = rooms.find((r) => r.id === other.roomId)
+          if (!otherRoom) continue
+
+          const otherAbsPos = {
+            x: otherRoom.position.x + other.position.x,
+            y: otherRoom.position.y + other.position.y,
+          }
+
+          if (other.shapeTemplate.type === "circle") {
+            const otherCenter = {
+              x: otherAbsPos.x + other.shapeTemplate.radius,
+              y: otherAbsPos.y + other.shapeTemplate.radius,
+            }
+            if (circlesIntersect(center, f.shapeTemplate.radius, otherCenter, other.shapeTemplate.radius)) {
+              return true
+            }
+          } else {
+            const otherVertices = getAbsoluteVertices(
+              furnitureShapeToVertices(other.shapeTemplate),
+              otherAbsPos
+            )
+            if (circlePolygonIntersect(center, f.shapeTemplate.radius, otherVertices)) {
+              return true
+            }
+          }
+        }
+      } else {
+        const movingVertices = getAbsoluteVertices(
+          furnitureShapeToVertices(f.shapeTemplate),
+          absolutePos
+        )
+        const roomVertices = getAbsoluteVertices(room.vertices, room.position)
+
+        const allInsideRoom = movingVertices.every((v) => pointInPolygon(v, roomVertices))
+        if (!allInsideRoom) return true
+
+        for (const other of furniture) {
+          if (other.id === furnitureId) continue
+          const otherRoom = rooms.find((r) => r.id === other.roomId)
+          if (!otherRoom) continue
+
+          const otherAbsPos = {
+            x: otherRoom.position.x + other.position.x,
+            y: otherRoom.position.y + other.position.y,
+          }
+
+          if (other.shapeTemplate.type === "circle") {
+            const otherCenter = {
+              x: otherAbsPos.x + other.shapeTemplate.radius,
+              y: otherAbsPos.y + other.shapeTemplate.radius,
+            }
+            if (circlePolygonIntersect(otherCenter, other.shapeTemplate.radius, movingVertices)) {
+              return true
+            }
+          } else {
+            const otherVertices = getAbsoluteVertices(
+              furnitureShapeToVertices(other.shapeTemplate),
+              otherAbsPos
+            )
+            if (polygonsIntersect(movingVertices, otherVertices)) {
+              return true
+            }
+          }
+        }
+      }
+
+      return false
+    },
+    [furniture, rooms]
+  )
+
+  const findRoomAtPoint = useCallback(
+    (point: Point): RoomEntity | null => {
+      for (const room of rooms) {
+        const vertices = getAbsoluteVertices(room.vertices, room.position)
+        if (pointInPolygon(point, vertices)) {
+          return room
+        }
+      }
+      return null
     },
     [rooms]
   )
@@ -87,66 +235,168 @@ export function useCanvasInteraction({
     [rooms, gridSize, snapThreshold]
   )
 
-  const startMoving = useCallback(
-    (roomId: string) => {
-      const room = rooms.find((r) => r.id === roomId)
-      if (!room) return
+  const select = useCallback((id: string, type: "room" | "furniture") => {
+    setSelectedId(id)
+    setSelectedType(type)
+  }, [])
 
-      setSelectedRoomId(roomId)
-      setMode({ type: "moving", roomId, originalPosition: room.position })
+  const deselect = useCallback(() => {
+    setSelectedId(null)
+    setSelectedType(null)
+  }, [])
+
+  const startDragging = useCallback(
+    (entityId: string, entityType: "room" | "furniture", mousePos: Point) => {
+      if (entityType === "room") {
+        const room = rooms.find((r) => r.id === entityId)
+        if (!room) return
+        setMode({
+          type: "dragging",
+          entityType: "room",
+          entityId,
+          originalPosition: room.position,
+          startMousePos: mousePos,
+        })
+      } else {
+        const f = furniture.find((item) => item.id === entityId)
+        if (!f) return
+        setMode({
+          type: "dragging",
+          entityType: "furniture",
+          entityId,
+          originalPosition: f.position,
+          startMousePos: mousePos,
+        })
+      }
+      hasDraggedRef.current = false
     },
-    [rooms]
+    [rooms, furniture]
   )
 
-  const updatePosition = useCallback(
-    (position: Point) => {
-      if (mode.type !== "moving") return
+  const updateDragPosition = useCallback(
+    (worldPosition: Point, mousePos: Point) => {
+      if (mode.type !== "dragging") return
 
-      const snappedPosition = calculateSnappedPosition(mode.roomId, position)
+      const dx = mousePos.x - mode.startMousePos.x
+      const dy = mousePos.y - mode.startMousePos.y
+      if (!hasDraggedRef.current && Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) {
+        return
+      }
+      hasDraggedRef.current = true
 
-      onRoomMove(mode.roomId, snappedPosition)
+      if (mode.entityType === "room") {
+        const room = rooms.find((r) => r.id === mode.entityId)
+        if (!room) return
 
-      const now = Date.now()
-      if (now - lastSyncRef.current >= THROTTLE_MS) {
-        lastSyncRef.current = now
-        onRoomMoveThrottled(mode.roomId, snappedPosition)
-        pendingPositionRef.current = null
+        const centerOffsetX = room.vertices.reduce((sum, v) => sum + v.x, 0) / room.vertices.length
+        const centerOffsetY = room.vertices.reduce((sum, v) => sum + v.y, 0) / room.vertices.length
+
+        const rawPosition = {
+          x: worldPosition.x - centerOffsetX,
+          y: worldPosition.y - centerOffsetY,
+        }
+
+        const snappedPosition = calculateSnappedPosition(mode.entityId, rawPosition)
+        onRoomMove(mode.entityId, snappedPosition)
+
+        const now = Date.now()
+        if (now - lastSyncRef.current >= THROTTLE_MS) {
+          lastSyncRef.current = now
+          onRoomMoveThrottled(mode.entityId, snappedPosition)
+          pendingPositionRef.current = null
+        } else {
+          pendingPositionRef.current = { position: snappedPosition }
+        }
       } else {
-        pendingPositionRef.current = snappedPosition
+        const f = furniture.find((item) => item.id === mode.entityId)
+        if (!f) return
+
+        const targetRoom = findRoomAtPoint(worldPosition)
+        const roomId = targetRoom?.id ?? f.roomId
+        const room = rooms.find((r) => r.id === roomId)
+        if (!room) return
+
+        let centerOffsetX = 0
+        let centerOffsetY = 0
+        if (f.shapeTemplate.type === "circle") {
+          centerOffsetX = f.shapeTemplate.radius
+          centerOffsetY = f.shapeTemplate.radius
+        } else {
+          const verts = furnitureShapeToVertices(f.shapeTemplate)
+          centerOffsetX = verts.reduce((sum, v) => sum + v.x, 0) / verts.length
+          centerOffsetY = verts.reduce((sum, v) => sum + v.y, 0) / verts.length
+        }
+
+        const relativePosition = {
+          x: Math.round((worldPosition.x - room.position.x - centerOffsetX) / gridSize) * gridSize,
+          y: Math.round((worldPosition.y - room.position.y - centerOffsetY) / gridSize) * gridSize,
+        }
+
+        onFurnitureMove(mode.entityId, relativePosition, roomId)
+
+        const now = Date.now()
+        if (now - lastSyncRef.current >= THROTTLE_MS) {
+          lastSyncRef.current = now
+          onFurnitureMoveThrottled(mode.entityId, relativePosition, roomId)
+          pendingPositionRef.current = null
+        } else {
+          pendingPositionRef.current = { position: relativePosition, roomId }
+        }
       }
     },
-    [mode, calculateSnappedPosition, onRoomMove, onRoomMoveThrottled]
+    [
+      mode,
+      rooms,
+      furniture,
+      gridSize,
+      calculateSnappedPosition,
+      findRoomAtPoint,
+      onRoomMove,
+      onRoomMoveThrottled,
+      onFurnitureMove,
+      onFurnitureMoveThrottled,
+    ]
   )
 
-  const place = useCallback(() => {
-    if (mode.type !== "moving") return
+  const endDrag = useCallback(() => {
+    if (mode.type !== "dragging") return
 
     if (pendingPositionRef.current) {
-      onRoomMoveThrottled(mode.roomId, pendingPositionRef.current)
+      if (mode.entityType === "room") {
+        onRoomMoveThrottled(mode.entityId, pendingPositionRef.current.position)
+      } else if (pendingPositionRef.current.roomId) {
+        onFurnitureMoveThrottled(
+          mode.entityId,
+          pendingPositionRef.current.position,
+          pendingPositionRef.current.roomId
+        )
+      }
       pendingPositionRef.current = null
     }
 
-    setSelectedRoomId(null)
     setMode({ type: "idle" })
-  }, [mode, onRoomMoveThrottled])
+  }, [mode, onRoomMoveThrottled, onFurnitureMoveThrottled])
 
-  const cancel = useCallback(() => {
-    if (mode.type !== "moving") return
+  const cancelDrag = useCallback(() => {
+    if (mode.type !== "dragging") return
 
-    onRoomMove(mode.roomId, mode.originalPosition)
-    onRoomMoveThrottled(mode.roomId, mode.originalPosition)
+    if (mode.entityType === "room") {
+      onRoomMove(mode.entityId, mode.originalPosition)
+      onRoomMoveThrottled(mode.entityId, mode.originalPosition)
+    } else {
+      const f = furniture.find((item) => item.id === mode.entityId)
+      if (f) {
+        onFurnitureMove(mode.entityId, mode.originalPosition, f.roomId)
+        onFurnitureMoveThrottled(mode.entityId, mode.originalPosition, f.roomId)
+      }
+    }
     pendingPositionRef.current = null
-
-    setSelectedRoomId(null)
     setMode({ type: "idle" })
-  }, [mode, onRoomMove, onRoomMoveThrottled])
+  }, [mode, furniture, onRoomMove, onRoomMoveThrottled, onFurnitureMove, onFurnitureMoveThrottled])
 
   const nudge = useCallback(
     (direction: "up" | "down" | "left" | "right") => {
-      if (mode.type !== "moving") return
-
-      const room = rooms.find((r) => r.id === mode.roomId)
-      if (!room) return
+      if (!selectedId || !selectedType) return
 
       const delta = { x: 0, y: 0 }
       switch (direction) {
@@ -164,54 +414,54 @@ export function useCanvasInteraction({
           break
       }
 
-      const newPosition = {
-        x: room.position.x + delta.x,
-        y: room.position.y + delta.y,
+      if (selectedType === "room") {
+        const room = rooms.find((r) => r.id === selectedId)
+        if (!room) return
+        const newPosition = {
+          x: room.position.x + delta.x,
+          y: room.position.y + delta.y,
+        }
+        onRoomMove(selectedId, newPosition)
+        onRoomMoveThrottled(selectedId, newPosition)
+      } else {
+        const f = furniture.find((item) => item.id === selectedId)
+        if (!f) return
+        const newPosition = {
+          x: f.position.x + delta.x,
+          y: f.position.y + delta.y,
+        }
+        onFurnitureMove(selectedId, newPosition, f.roomId)
+        onFurnitureMoveThrottled(selectedId, newPosition, f.roomId)
       }
-
-      onRoomMove(mode.roomId, newPosition)
-      onRoomMoveThrottled(mode.roomId, newPosition)
     },
-    [mode, rooms, onRoomMove, onRoomMoveThrottled]
+    [selectedId, selectedType, rooms, furniture, onRoomMove, onRoomMoveThrottled, onFurnitureMove, onFurnitureMoveThrottled]
   )
 
-  const handleClick = useCallback(() => {
-    if (mode.type === "moving") {
-      place()
-    }
-  }, [mode, place])
-
-  const handleRoomClick = useCallback(
-    (roomId: string) => {
-      if (mode.type === "moving") {
-        place()
-        return
-      }
-
-      startMoving(roomId)
+  const handleMouseDown = useCallback(
+    (entityId: string, entityType: "room" | "furniture", mousePos: Point) => {
+      select(entityId, entityType)
+      startDragging(entityId, entityType, mousePos)
     },
-    [mode, place, startMoving]
+    [select, startDragging]
   )
 
-  const deselect = useCallback(() => {
-    if (mode.type === "idle") {
-      setSelectedRoomId(null)
+  const handleMouseUp = useCallback(() => {
+    if (mode.type === "dragging" && hasDraggedRef.current) {
+      endDrag()
+    } else if (mode.type === "dragging") {
+      setMode({ type: "idle" })
     }
-  }, [mode])
+  }, [mode, endDrag])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (mode.type === "moving") {
+      if (mode.type === "dragging") {
+        if (e.key === "Escape") {
+          e.preventDefault()
+          cancelDrag()
+        }
+      } else if (selectedId && selectedType) {
         switch (e.key) {
-          case "Enter":
-          case " ":
-            e.preventDefault()
-            place()
-            break
-          case "Escape":
-            e.preventDefault()
-            cancel()
-            break
           case "ArrowUp":
             e.preventDefault()
             nudge("up")
@@ -228,29 +478,35 @@ export function useCanvasInteraction({
             e.preventDefault()
             nudge("right")
             break
+          case "Escape":
+            e.preventDefault()
+            deselect()
+            break
         }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [mode, place, cancel, nudge])
+  }, [mode, selectedId, selectedType, cancelDrag, nudge, deselect])
 
   return {
-    mode,
-    selectedRoomId,
-    movingRoomId,
-    isMoving: mode.type === "moving",
-    getMovingRoom,
-    checkCollision,
-    startMoving,
-    updatePosition,
-    place,
-    cancel,
-    nudge,
-    handleClick,
-    handleRoomClick,
+    selectedId,
+    selectedType,
+    isDragging,
+    draggingRoomId,
+    draggingFurnitureId,
+    getSelectedRoom,
+    getSelectedFurniture,
+    checkRoomCollision,
+    checkFurnitureCollision,
+    select,
     deselect,
+    handleMouseDown,
+    handleMouseUp,
+    updateDragPosition,
+    endDrag,
+    cancelDrag,
+    nudge,
   }
 }
-

@@ -4,6 +4,7 @@ import type {
   ServerMessage,
   LayoutDocument,
   RoomEntity,
+  FurnitureEntity,
   Point,
 } from "@apartment-planner/shared"
 import { getLayoutByRoomCode, updateLayoutData } from "../lib/db"
@@ -72,7 +73,11 @@ export class LayoutHandler {
       this.broadcast(broadcastMessage, sender.id)
     } else if (data.type === "room-delete") {
       this.document.entities = this.document.entities.filter(
-        (e) => !(e.type === "room" && e.id === data.roomId)
+        (e) => {
+          if (e.type === "room" && e.id === data.roomId) return false
+          if (e.type === "furniture" && e.roomId === data.roomId) return false
+          return true
+        }
       )
       await this.persistDocument()
 
@@ -94,6 +99,56 @@ export class LayoutHandler {
         type: "room-moved",
         roomId: data.roomId,
         position: data.position,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "furniture-add") {
+      this.document.entities.push(data.furniture)
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "furniture-added",
+        furniture: data.furniture,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "furniture-update") {
+      this.document.entities = this.document.entities.map((e) =>
+        e.type === "furniture" && e.id === data.furniture.id ? data.furniture : e
+      )
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "furniture-updated",
+        furniture: data.furniture,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "furniture-delete") {
+      this.document.entities = this.document.entities.filter(
+        (e) => !(e.type === "furniture" && e.id === data.furnitureId)
+      )
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "furniture-deleted",
+        furnitureId: data.furnitureId,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "furniture-move") {
+      this.document.entities = this.document.entities.map((e) =>
+        e.type === "furniture" && e.id === data.furnitureId
+          ? { ...e, position: data.position, roomId: data.roomId }
+          : e
+      ) as FurnitureEntity[]
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "furniture-moved",
+        furnitureId: data.furnitureId,
+        position: data.position,
+        roomId: data.roomId,
         clientId: sender.id,
       }
       this.broadcast(broadcastMessage, sender.id)
