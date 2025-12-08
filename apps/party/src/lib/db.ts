@@ -68,3 +68,13 @@ export async function roomCodeExists(roomCode: string): Promise<boolean> {
   `
   return rows.length > 0
 }
+
+export async function getLayoutsByRoomCodes(roomCodes: string[]): Promise<Layout[]> {
+  if (roomCodes.length === 0) return []
+  const rows = await sql`
+    SELECT id, name, room_code, data, created_at, updated_at
+    FROM layouts
+    WHERE room_code = ANY(${roomCodes})
+  `
+  return rows as Layout[]
+}

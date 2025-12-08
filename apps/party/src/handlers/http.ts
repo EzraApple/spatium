@@ -3,6 +3,7 @@ import {
   createLayout, 
   getLayoutById, 
   getLayoutByRoomCode, 
+  getLayoutsByRoomCodes,
   updateLayoutName,
   roomCodeExists 
 } from "../lib/db"
@@ -96,6 +97,18 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
         return json({ error: "Layout not found" }, 404)
       }
       return json({ id: layout.id, roomCode: layout.room_code, name: layout.name, data: layout.data })
+    }
+
+    if (path.endsWith("/layouts/batch") && request.method === "POST") {
+      const body = await request.json() as { codes?: string[] }
+      if (!body.codes || !Array.isArray(body.codes)) {
+        return json({ error: "codes array is required" }, 400)
+      }
+      const codes = body.codes.map((c) => c.toUpperCase()).slice(0, 20)
+      const layouts = await getLayoutsByRoomCodes(codes)
+      return json(
+        layouts.map((l) => ({ id: l.id, roomCode: l.room_code, name: l.name }))
+      )
     }
 
     return json({ error: "Not found" }, 404)

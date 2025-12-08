@@ -15,6 +15,7 @@ import { useCursorSync } from "@/hooks/use-cursor-sync"
 import { useLayoutSync } from "@/hooks/use-layout-sync"
 import { useCanvasInteraction } from "@/hooks/use-canvas-interaction"
 import { getLayout, updateLayoutName } from "@/lib/api"
+import { addVisitedRoom } from "@/lib/visited-rooms"
 import type { Layout, RoomEntity, ShapeTemplate } from "@apartment-planner/shared"
 import { shapeToVertices, feetToEighths } from "@apartment-planner/shared"
 
@@ -73,7 +74,10 @@ export function EditorPage() {
     }
 
     getLayout(id)
-      .then(setLayout)
+      .then((layout) => {
+        setLayout(layout)
+        addVisitedRoom(layout.roomCode)
+      })
       .catch(() => navigate("/"))
       .finally(() => setLoading(false))
   }, [id, navigate])

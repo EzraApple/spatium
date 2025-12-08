@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -10,6 +11,7 @@ interface LayoutHeaderProps {
 }
 
 export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
+  const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(layout.name)
   const [copied, setCopied] = useState(false)
@@ -45,7 +47,12 @@ export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <img src="/favicon-32x32.png" alt="Spatium" className="h-8 w-8" />
+        <button
+          onClick={() => navigate("/")}
+          className="rounded-md p-1 transition-colors hover:bg-muted"
+        >
+          <img src="/favicon-32x32.png" alt="Spatium" className="h-8 w-8" />
+        </button>
 
         {isEditing ? (
           <input

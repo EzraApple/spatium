@@ -37,3 +37,20 @@ export async function updateLayoutName(id: string, name: string): Promise<Layout
   return res.json()
 }
 
+export type LayoutSummary = {
+  id: string
+  roomCode: string
+  name: string
+}
+
+export async function getLayoutsByCodes(codes: string[]): Promise<LayoutSummary[]> {
+  if (codes.length === 0) return []
+  const res = await fetch(`${getBaseUrl()}/layouts/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ codes }),
+  })
+  if (!res.ok) return []
+  return res.json()
+}
+

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
+import { RecentRooms } from "@/components/recent-rooms"
 import { createLayout, getLayoutByCode } from "@/lib/api"
 import { ArrowRight } from "lucide-react"
 
@@ -62,7 +63,7 @@ export function LandingPage() {
           style={{ animationDelay: "0ms" }}
         >
           <div className="flex items-center gap-4">
-            <img src="/android-chrome-192x192.png" alt="Spatium" className="h-14 w-14" />
+            <img src="/android-chrome-192x192.png" alt="Spatium" className="h-32 w-32" />
             <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
               Spatium
             </h1>
@@ -124,6 +125,13 @@ export function LandingPage() {
               <p className="text-sm text-destructive">{error}</p>
             )}
           </div>
+        </div>
+
+        <div 
+          className="opacity-0 animate-fade-up"
+          style={{ animationDelay: "300ms" }}
+        >
+          <RecentRooms />
         </div>
       </div>
 
