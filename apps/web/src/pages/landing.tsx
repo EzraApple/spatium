@@ -69,7 +69,7 @@ export function LandingPage() {
             </h1>
           </div>
           <p className="max-w-md text-center text-lg text-muted-foreground">
-            Design and collaborate on room layouts in real-time with your team
+            Design and collaborate on room layouts in real-time with your roommates or friends
           </p>
         </div>
 
