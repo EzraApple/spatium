@@ -60,7 +60,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
       }
 
       const layout = await createLayout(roomCode)
-      return json({ id: layout.id, roomCode: layout.room_code, name: layout.name })
+      return json({ id: layout.id, roomCode: layout.room_code, name: layout.name, data: layout.data })
     }
 
     const layoutIdMatch = path.match(/\/layout\/([a-f0-9-]+)$/i)
@@ -72,7 +72,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
         if (!layout) {
           return json({ error: "Layout not found" }, 404)
         }
-        return json({ id: layout.id, roomCode: layout.room_code, name: layout.name })
+        return json({ id: layout.id, roomCode: layout.room_code, name: layout.name, data: layout.data })
       }
 
       if (request.method === "PATCH") {
@@ -84,7 +84,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
         if (!layout) {
           return json({ error: "Layout not found" }, 404)
         }
-        return json({ id: layout.id, roomCode: layout.room_code, name: layout.name })
+        return json({ id: layout.id, roomCode: layout.room_code, name: layout.name, data: layout.data })
       }
     }
 
@@ -95,7 +95,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
       if (!layout) {
         return json({ error: "Layout not found" }, 404)
       }
-      return json({ id: layout.id, roomCode: layout.room_code, name: layout.name })
+      return json({ id: layout.id, roomCode: layout.room_code, name: layout.name, data: layout.data })
     }
 
     return json({ error: "Not found" }, 404)

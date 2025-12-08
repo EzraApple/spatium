@@ -11,6 +11,7 @@ model Layout {
   id        String   @id @default(uuid())
   name      String   @default("Untitled Layout")
   roomCode  String   @unique @map("room_code")
+  data      Json     @default("{\"version\":1,\"entities\":[]}")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
