@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { LayoutGrid, Copy, Check } from "lucide-react"
+import { Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Layout } from "@apartment-planner/shared"
@@ -45,9 +45,7 @@ export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <LayoutGrid className="h-4 w-4" />
-        </div>
+        <img src="/favicon-32x32.png" alt="Spatium" className="h-8 w-8" />
 
         {isEditing ? (
           <input
