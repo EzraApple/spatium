@@ -1,25 +1,37 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from "react"
-import type { RoomEntity, FurnitureEntity, Point } from "@apartment-planner/shared"
-import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle, findNearestDistances } from "@apartment-planner/shared"
+import type { RoomEntity, FurnitureEntity, DoorEntity, Point, HingeSide } from "@apartment-planner/shared"
+import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle, findNearestDistances, getWallSegments, findClosestWallPoint, inchesToEighths } from "@apartment-planner/shared"
 import { RoomPolygon } from "@/components/room-polygon"
 import { FurnitureShape } from "@/components/furniture-shape"
+import { DoorShape, GhostDoor } from "@/components/door-shape"
 import { DistanceIndicator } from "@/components/distance-indicator"
 
-export type CursorMode = "grab" | "grabbing" | "pointer"
+export type CursorMode = "grab" | "grabbing" | "pointer" | "crosshair"
+
+type PlacingDoorState = {
+  roomId: string
+  doorWidth: number
+  hingeSide: HingeSide
+}
 
 type RoomCanvasProps = {
+  roomCode: string
   rooms: RoomEntity[]
   furniture: FurnitureEntity[]
+  doors: DoorEntity[]
   selectedId: string | null
-  selectedType: "room" | "furniture" | null
+  selectedType: "room" | "furniture" | "door" | null
   draggingRoomId: string | null
   draggingFurnitureId: string | null
-  onMouseDown: (entityId: string, entityType: "room" | "furniture", mousePos: Point) => void
+  placingDoor: PlacingDoorState | null
+  onMouseDown: (entityId: string, entityType: "room" | "furniture" | "door", mousePos: Point) => void
   onMouseUp: () => void
   onDragUpdate: (worldPosition: Point, mousePos: Point) => void
   onCanvasClick: () => void
   onContextMenu: (x: number, y: number, targetRoom: RoomEntity | null) => void
   onCursorModeChange: (mode: CursorMode) => void
+  onDoorPlace: (roomId: string, wallIndex: number, positionOnWall: number) => void
+  onDoorPlaceCancel: () => void
   checkRoomCollision: (roomId: string, position: Point) => boolean
   checkFurnitureCollision: (furnitureId: string, position: Point, roomId: string) => boolean
 }
@@ -27,40 +39,106 @@ type RoomCanvasProps = {
 const GRID_SIZE = 24
 const FIT_PADDING = 0.7
 
+function getStorageKey(roomCode: string) {
+  return `spatium-viewbox-${roomCode}`
+}
+
+function loadViewBox(roomCode: string): { x: number; y: number; width: number; height: number } | null {
+  try {
+    const stored = sessionStorage.getItem(getStorageKey(roomCode))
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch {
+  }
+  return null
+}
+
+function saveViewBox(roomCode: string, viewBox: { x: number; y: number; width: number; height: number }) {
+  try {
+    sessionStorage.setItem(getStorageKey(roomCode), JSON.stringify(viewBox))
+  } catch {
+  }
+}
+
 export function RoomCanvas({
+  roomCode,
   rooms,
   furniture,
+  doors,
   selectedId,
   selectedType,
   draggingRoomId,
   draggingFurnitureId,
+  placingDoor,
   onMouseDown,
   onMouseUp,
   onDragUpdate,
   onCanvasClick,
   onContextMenu,
   onCursorModeChange,
+  onDoorPlace,
+  onDoorPlaceCancel,
   checkRoomCollision,
   checkFurnitureCollision,
 }: RoomCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const [viewBox, setViewBox] = useState({ x: -500, y: -500, width: 2000, height: 1500 })
+  const [viewBox, setViewBox] = useState(() => {
+    const stored = loadViewBox(roomCode)
+    return stored ?? { x: -500, y: -500, width: 2000, height: 1500 }
+  })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState<Point | null>(null)
   const [cursorMode, setCursorMode] = useState<CursorMode>("grab")
+  const [ghostDoor, setGhostDoor] = useState<{
+    wallStart: Point
+    wallEnd: Point
+    positionOnWall: number
+    wallIndex: number
+  } | null>(null)
   
   useEffect(() => {
     onCursorModeChange(cursorMode)
   }, [cursorMode, onCursorModeChange])
 
+  useEffect(() => {
+    if (placingDoor) {
+      setCursorMode("crosshair")
+    }
+  }, [placingDoor])
+
+  useEffect(() => {
+    if (!placingDoor) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setGhostDoor(null)
+        onDoorPlaceCancel()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [placingDoor, onDoorPlaceCancel])
+
   const hasInitialFitRef = useRef(false)
+  const hasStoredViewBoxRef = useRef(loadViewBox(roomCode) !== null)
   const initialRoomsRef = useRef<RoomEntity[] | null>(null)
   const isDragging = draggingRoomId !== null || draggingFurnitureId !== null
 
   const scale = 1 / 12
 
   useEffect(() => {
+    saveViewBox(roomCode, viewBox)
+  }, [roomCode, viewBox])
+
+  useEffect(() => {
     if (hasInitialFitRef.current) return
+    if (hasStoredViewBoxRef.current) {
+      hasInitialFitRef.current = true
+      return
+    }
     if (rooms.length === 0) return
     if (!svgRef.current) return
 
@@ -188,6 +266,11 @@ export function RoomCanvas({
 
   const updateCursorMode = useCallback(
     (clientX: number, clientY: number) => {
+      if (placingDoor) {
+        setCursorMode("crosshair")
+        return
+      }
+
       if (isPanning) {
         setCursorMode("grabbing")
         return
@@ -205,7 +288,7 @@ export function RoomCanvas({
         setCursorMode("grab")
       }
     },
-    [isPanning, screenToSvg, svgToWorld, hitTestFurniture, hitTestRoom]
+    [placingDoor, isPanning, screenToSvg, svgToWorld, hitTestFurniture, hitTestRoom]
   )
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -213,6 +296,12 @@ export function RoomCanvas({
 
     const svgPos = screenToSvg(e.clientX, e.clientY)
     const worldPos = svgToWorld(svgPos)
+
+    if (placingDoor && ghostDoor) {
+      onDoorPlace(placingDoor.roomId, ghostDoor.wallIndex, ghostDoor.positionOnWall)
+      setGhostDoor(null)
+      return
+    }
 
     const hitFurniture = hitTestFurniture(worldPos)
     if (hitFurniture) {
@@ -249,6 +338,25 @@ export function RoomCanvas({
       const svgPos = screenToSvg(e.clientX, e.clientY)
       const worldPos = svgToWorld(svgPos)
       onDragUpdate(worldPos, { x: e.clientX, y: e.clientY })
+      return
+    }
+
+    if (placingDoor) {
+      const svgPos = screenToSvg(e.clientX, e.clientY)
+      const worldPos = svgToWorld(svgPos)
+      const room = rooms.find((r) => r.id === placingDoor.roomId)
+      if (room) {
+        const walls = getWallSegments(room.vertices, room.position)
+        const snapResult = findClosestWallPoint(worldPos, walls, placingDoor.doorWidth)
+        if (snapResult) {
+          setGhostDoor({
+            wallStart: snapResult.wallStart,
+            wallEnd: snapResult.wallEnd,
+            positionOnWall: snapResult.positionOnWall,
+            wallIndex: snapResult.wallIndex,
+          })
+        }
+      }
       return
     }
 
@@ -434,6 +542,43 @@ export function RoomCanvas({
           />
         )
       })}
+
+      {doors.map((door) => {
+        const room = rooms.find((r) => r.id === door.roomId)
+        if (!room) return null
+        return (
+          <DoorShape
+            key={door.id}
+            door={door}
+            room={room}
+            scale={scale}
+            pixelScale={pixelScale}
+            isSelected={selectedType === "door" && selectedId === door.id}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              onMouseDown(door.id, "door", { x: e.clientX, y: e.clientY })
+            }}
+          />
+        )
+      })}
+
+      {placingDoor && ghostDoor && (() => {
+        const room = rooms.find((r) => r.id === placingDoor.roomId)
+        if (!room) return null
+        return (
+          <GhostDoor
+            wallStart={ghostDoor.wallStart}
+            wallEnd={ghostDoor.wallEnd}
+            positionOnWall={ghostDoor.positionOnWall}
+            doorWidth={placingDoor.doorWidth}
+            hingeSide={placingDoor.hingeSide}
+            roomVertices={room.vertices}
+            roomPosition={room.position}
+            scale={scale}
+            pixelScale={pixelScale}
+          />
+        )
+      })()}
 
       {distanceMeasurements.map((m, i) => (
         <DistanceIndicator

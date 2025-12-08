@@ -1,4 +1,4 @@
-import type { Point, ShapeTemplate, FurnitureShapeTemplate, WallSegment } from "./entities"
+import type { Point, ShapeTemplate, FurnitureShapeTemplate, WallSegment, DoorEntity, HingeSide } from "./entities"
 
 export function shapeToVertices(template: ShapeTemplate): Point[] {
   switch (template.type) {
@@ -456,5 +456,170 @@ export function findNearestDistances(
   }
 
   return selected
+}
+
+export type WallSnapResult = {
+  wallIndex: number
+  positionOnWall: number
+  point: Point
+  wallAngle: number
+  wallStart: Point
+  wallEnd: Point
+}
+
+export function findClosestWallPoint(
+  worldPoint: Point,
+  walls: WallSegment[],
+  doorWidth: number
+): WallSnapResult | null {
+  if (walls.length === 0) return null
+
+  let closestResult: WallSnapResult | null = null
+  let closestDistance = Infinity
+
+  for (let i = 0; i < walls.length; i++) {
+    const wall = walls[i]
+    const closest = closestPointOnSegment(worldPoint, wall.start, wall.end)
+    const dx = worldPoint.x - closest.x
+    const dy = worldPoint.y - closest.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+
+    if (distance < closestDistance) {
+      closestDistance = distance
+
+      const wallDx = wall.end.x - wall.start.x
+      const wallDy = wall.end.y - wall.start.y
+      const wallLength = Math.sqrt(wallDx * wallDx + wallDy * wallDy)
+
+      let positionOnWall = 0
+      if (wallLength > 0) {
+        const projDx = closest.x - wall.start.x
+        const projDy = closest.y - wall.start.y
+        positionOnWall = Math.sqrt(projDx * projDx + projDy * projDy)
+      }
+
+      const halfDoor = doorWidth / 2
+      positionOnWall = Math.max(halfDoor, Math.min(wall.length - halfDoor, positionOnWall))
+
+      const t = positionOnWall / wall.length
+      const snappedPoint = {
+        x: wall.start.x + t * wallDx,
+        y: wall.start.y + t * wallDy,
+      }
+
+      closestResult = {
+        wallIndex: i,
+        positionOnWall,
+        point: snappedPoint,
+        wallAngle: Math.atan2(wallDy, wallDx),
+        wallStart: wall.start,
+        wallEnd: wall.end,
+      }
+    }
+  }
+
+  return closestResult
+}
+
+export type DoorGeometry = {
+  doorStart: Point
+  doorEnd: Point
+  hingePoint: Point
+  swingStartPoint: Point
+  swingEndPoint: Point
+  swingRadius: number
+  sweepFlag: number
+  doorAngle: number
+}
+
+export function getDoorGeometry(
+  wallStart: Point,
+  wallEnd: Point,
+  positionOnWall: number,
+  doorWidth: number,
+  hingeSide: HingeSide,
+  roomVertices: Point[],
+  roomPosition: Point
+): DoorGeometry {
+  const wallDx = wallEnd.x - wallStart.x
+  const wallDy = wallEnd.y - wallStart.y
+  const wallLength = Math.sqrt(wallDx * wallDx + wallDy * wallDy)
+
+  const wallUnitX = wallDx / wallLength
+  const wallUnitY = wallDy / wallLength
+
+  const doorCenterX = wallStart.x + wallUnitX * positionOnWall
+  const doorCenterY = wallStart.y + wallUnitY * positionOnWall
+
+  const halfDoor = doorWidth / 2
+  const doorStart = {
+    x: doorCenterX - wallUnitX * halfDoor,
+    y: doorCenterY - wallUnitY * halfDoor,
+  }
+  const doorEnd = {
+    x: doorCenterX + wallUnitX * halfDoor,
+    y: doorCenterY + wallUnitY * halfDoor,
+  }
+
+  const hingePoint = hingeSide === "left" ? doorStart : doorEnd
+  const swingStartPoint = hingeSide === "left" ? doorEnd : doorStart
+
+  const normalX = -wallUnitY
+  const normalY = wallUnitX
+
+  const testPointPositive = {
+    x: doorCenterX + normalX * 10,
+    y: doorCenterY + normalY * 10,
+  }
+
+  const absoluteVertices = getAbsoluteVertices(roomVertices, roomPosition)
+  const positiveIsInside = pointInPolygon(testPointPositive, absoluteVertices)
+
+  const inwardX = positiveIsInside ? normalX : -normalX
+  const inwardY = positiveIsInside ? normalY : -normalY
+
+  const swingEndX = hingePoint.x + inwardX * doorWidth
+  const swingEndY = hingePoint.y + inwardY * doorWidth
+
+  const cross = (swingStartPoint.x - hingePoint.x) * (swingEndY - hingePoint.y) -
+                (swingStartPoint.y - hingePoint.y) * (swingEndX - hingePoint.x)
+  const sweepFlag = cross > 0 ? 1 : 0
+
+  const swingEndPoint = { x: swingEndX, y: swingEndY }
+
+  const doorAngle = Math.atan2(wallDy, wallDx) * (180 / Math.PI)
+
+  return {
+    doorStart,
+    doorEnd,
+    hingePoint,
+    swingStartPoint,
+    swingEndPoint,
+    swingRadius: doorWidth,
+    sweepFlag,
+    doorAngle,
+  }
+}
+
+export function getDoorAbsolutePosition(
+  door: DoorEntity,
+  roomVertices: Point[],
+  roomPosition: Point
+): { walls: WallSegment[]; geometry: DoorGeometry } | null {
+  const walls = getWallSegments(roomVertices, roomPosition)
+  if (door.wallIndex >= walls.length) return null
+
+  const wall = walls[door.wallIndex]
+  const geometry = getDoorGeometry(
+    wall.start,
+    wall.end,
+    door.positionOnWall,
+    door.width,
+    door.hingeSide,
+    roomVertices,
+    roomPosition
+  )
+
+  return { walls, geometry }
 }
 

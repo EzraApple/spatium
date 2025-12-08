@@ -1,28 +1,51 @@
 import { useState, useEffect, useCallback } from "react"
 import { Trash2 } from "lucide-react"
+import { HexColorPicker } from "react-colorful"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import type { RoomEntity, FurnitureEntity, ShapeTemplate, FurnitureShapeTemplate, Corner } from "@apartment-planner/shared"
-import { formatInchesForEditor, parseInchesFromEditor, shapeToVertices } from "@apartment-planner/shared"
+import type { RoomEntity, FurnitureEntity, DoorEntity, ShapeTemplate, FurnitureShapeTemplate, Corner, HingeSide } from "@apartment-planner/shared"
+import { formatInchesForEditor, parseInchesFromEditor, shapeToVertices, inchesToEighths } from "@apartment-planner/shared"
+
+const DEFAULT_FURNITURE_COLORS: Record<FurnitureEntity["furnitureType"], string> = {
+  "square-table": "#5D4037",
+  "circle-table": "#5D4037",
+  "rectangle-desk": "#C4A484",
+  "l-shaped-desk": "#C4A484",
+  "couch": "#4A4A4A",
+  "l-shaped-couch": "#4A4A4A",
+  "fridge": "#D3D3D3",
+}
+
+const DOOR_WIDTH_PRESETS = [
+  { label: '36"', value: 36 },
+  { label: '42"', value: 42 },
+  { label: '48"', value: 48 },
+]
 
 type PropertyPanelProps = {
   selectedRoom: RoomEntity | null
   selectedFurniture: FurnitureEntity | null
+  selectedDoor: DoorEntity | null
   onRoomUpdate: (room: RoomEntity) => void
   onFurnitureUpdate: (furniture: FurnitureEntity) => void
+  onDoorUpdate: (door: DoorEntity) => void
   onRoomDelete: (roomId: string) => void
   onFurnitureDelete: (furnitureId: string) => void
+  onDoorDelete: (doorId: string) => void
 }
 
 export function PropertyPanel({
   selectedRoom,
   selectedFurniture,
+  selectedDoor,
   onRoomUpdate,
   onFurnitureUpdate,
+  onDoorUpdate,
   onRoomDelete,
   onFurnitureDelete,
+  onDoorDelete,
 }: PropertyPanelProps) {
   const [name, setName] = useState("")
   const [width, setWidth] = useState("")
@@ -33,9 +56,16 @@ export function PropertyPanel({
   const [bevelSize, setBevelSize] = useState("")
   const [bevelCorner, setBevelCorner] = useState<Corner>("top-right")
   const [radius, setRadius] = useState("")
+  const [doorWidth, setDoorWidth] = useState("")
+  const [hingeSide, setHingeSide] = useState<HingeSide>("left")
+  const [furnitureColor, setFurnitureColor] = useState("#4A4A4A")
 
   useEffect(() => {
-    if (selectedRoom) {
+    if (selectedDoor) {
+      setName(selectedDoor.name)
+      setDoorWidth(formatInchesForEditor(selectedDoor.width))
+      setHingeSide(selectedDoor.hingeSide)
+    } else if (selectedRoom) {
       setName(selectedRoom.name)
       setWidth(formatInchesForEditor(selectedRoom.shapeTemplate.width))
       setHeight(formatInchesForEditor(selectedRoom.shapeTemplate.height))
@@ -52,6 +82,7 @@ export function PropertyPanel({
       }
     } else if (selectedFurniture) {
       setName(selectedFurniture.name)
+      setFurnitureColor(selectedFurniture.color ?? DEFAULT_FURNITURE_COLORS[selectedFurniture.furnitureType])
       
       if (selectedFurniture.shapeTemplate.type === "circle") {
         setRadius(formatInchesForEditor(selectedFurniture.shapeTemplate.radius))
@@ -66,7 +97,7 @@ export function PropertyPanel({
         }
       }
     }
-  }, [selectedRoom, selectedFurniture])
+  }, [selectedRoom, selectedFurniture, selectedDoor])
 
   const handleRoomSave = useCallback(() => {
     if (!selectedRoom) return
@@ -142,13 +173,60 @@ export function PropertyPanel({
       ...selectedFurniture,
       name,
       shapeTemplate: template,
+      color: furnitureColor,
     }
 
     onFurnitureUpdate(updatedFurniture)
-  }, [selectedFurniture, name, width, height, cutWidth, cutHeight, cutCorner, radius, onFurnitureUpdate])
+  }, [selectedFurniture, name, width, height, cutWidth, cutHeight, cutCorner, radius, furnitureColor, onFurnitureUpdate])
+
+  const handleColorChange = useCallback((newColor: string) => {
+    setFurnitureColor(newColor)
+    if (!selectedFurniture) return
+    
+    const updatedFurniture: FurnitureEntity = {
+      ...selectedFurniture,
+      color: newColor,
+    }
+    onFurnitureUpdate(updatedFurniture)
+  }, [selectedFurniture, onFurnitureUpdate])
+
+  const handleDoorSave = useCallback(() => {
+    if (!selectedDoor) return
+
+    const updatedDoor: DoorEntity = {
+      ...selectedDoor,
+      name,
+      width: parseInchesFromEditor(doorWidth) ?? selectedDoor.width,
+      hingeSide,
+    }
+
+    onDoorUpdate(updatedDoor)
+  }, [selectedDoor, name, doorWidth, hingeSide, onDoorUpdate])
+
+  const handleDoorWidthPreset = useCallback((widthInches: number) => {
+    if (!selectedDoor) return
+    setDoorWidth(String(widthInches))
+    const updatedDoor: DoorEntity = {
+      ...selectedDoor,
+      width: inchesToEighths(widthInches),
+    }
+    onDoorUpdate(updatedDoor)
+  }, [selectedDoor, onDoorUpdate])
+
+  const handleHingeSideChange = useCallback((side: HingeSide) => {
+    if (!selectedDoor) return
+    setHingeSide(side)
+    const updatedDoor: DoorEntity = {
+      ...selectedDoor,
+      hingeSide: side,
+    }
+    onDoorUpdate(updatedDoor)
+  }, [selectedDoor, onDoorUpdate])
 
   const handleNameBlur = () => {
-    if (selectedRoom) {
+    if (selectedDoor) {
+      handleDoorSave()
+    } else if (selectedRoom) {
       handleRoomSave()
     } else if (selectedFurniture) {
       handleFurnitureSave()
@@ -156,7 +234,9 @@ export function PropertyPanel({
   }
 
   const handleDimensionBlur = () => {
-    if (selectedRoom) {
+    if (selectedDoor) {
+      handleDoorSave()
+    } else if (selectedRoom) {
       handleRoomSave()
     } else if (selectedFurniture) {
       handleFurnitureSave()
@@ -164,14 +244,16 @@ export function PropertyPanel({
   }
 
   const handleDelete = () => {
-    if (selectedRoom) {
+    if (selectedDoor) {
+      onDoorDelete(selectedDoor.id)
+    } else if (selectedRoom) {
       onRoomDelete(selectedRoom.id)
     } else if (selectedFurniture) {
       onFurnitureDelete(selectedFurniture.id)
     }
   }
 
-  if (!selectedRoom && !selectedFurniture) {
+  if (!selectedRoom && !selectedFurniture && !selectedDoor) {
     return null
   }
 
@@ -185,23 +267,28 @@ export function PropertyPanel({
         "circle-table": "Circle Table",
         "rectangle-desk": "Rectangle Desk",
         "l-shaped-desk": "L-Shaped Desk",
+        "couch": "Couch",
+        "l-shaped-couch": "L-Shaped Couch",
+        "fridge": "Fridge",
       }[selectedFurniture.furnitureType]
     : null
 
+  const entityType = selectedDoor ? "Door" : selectedRoom ? "Room" : "Furniture"
+
   return (
-    <div className="absolute right-0 top-0 bottom-0 w-64 border-l border-sidebar-border bg-sidebar p-4 flex flex-col gap-4 shadow-lg animate-in slide-in-from-right-4 duration-200 cursor-hidden">
-      <div>
+    <div className="absolute right-0 top-0 bottom-0 w-64 border-l border-sidebar-border bg-sidebar shadow-lg animate-in slide-in-from-right-4 duration-200 cursor-hidden flex flex-col">
+      <div className="p-4 pb-0">
         <h3 className="text-sm font-semibold text-sidebar-foreground mb-1">
-          {selectedRoom ? "Room" : "Furniture"}
+          {entityType}
         </h3>
         {furnitureTypeLabel && (
           <p className="text-xs text-muted-foreground">{furnitureTypeLabel}</p>
         )}
       </div>
 
-      <Separator />
+      <Separator className="my-4" />
 
-      <div className="space-y-4 flex-1">
+      <div className="flex-1 overflow-y-auto px-4 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="prop-name">Name</Label>
           <Input
@@ -212,7 +299,50 @@ export function PropertyPanel({
           />
         </div>
 
-        {shapeType === "circle" ? (
+        {selectedDoor ? (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="prop-door-width">Width (in)</Label>
+              <div className="flex gap-1 mb-2">
+                {DOOR_WIDTH_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.value}
+                    type="button"
+                    variant={parseFloat(doorWidth) === preset.value ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => handleDoorWidthPreset(preset.value)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                id="prop-door-width"
+                value={doorWidth}
+                onChange={(e) => setDoorWidth(e.target.value)}
+                onBlur={handleDimensionBlur}
+                placeholder="Custom width"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Hinge Side</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["left", "right"] as HingeSide[]).map((side) => (
+                  <Button
+                    key={side}
+                    type="button"
+                    variant={hingeSide === side ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleHingeSideChange(side)}
+                  >
+                    {side.charAt(0).toUpperCase() + side.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : shapeType === "circle" ? (
           <div className="space-y-2">
             <Label htmlFor="prop-radius">Radius (in)</Label>
             <Input
@@ -245,7 +375,7 @@ export function PropertyPanel({
           </div>
         )}
 
-        {shapeType === "l-shaped" && (
+        {!selectedDoor && shapeType === "l-shaped" && (
           <>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
@@ -292,7 +422,7 @@ export function PropertyPanel({
           </>
         )}
 
-        {shapeType === "beveled" && selectedRoom && (
+        {!selectedDoor && shapeType === "beveled" && selectedRoom && (
           <>
             <div className="space-y-2">
               <Label htmlFor="prop-bevel-size">Bevel Size (in)</Label>
@@ -327,19 +457,39 @@ export function PropertyPanel({
             </div>
           </>
         )}
+
+        {selectedFurniture && (
+          <div className="space-y-2">
+            <Label>Color</Label>
+            <div className="flex flex-col gap-2">
+              <HexColorPicker
+                color={furnitureColor}
+                onChange={handleColorChange}
+                style={{ width: "100%", height: 150 }}
+              />
+              <Input
+                value={furnitureColor}
+                onChange={(e) => handleColorChange(e.target.value)}
+                placeholder="#4A4A4A"
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      <Separator />
-
-      <Button
-        variant="destructive"
-        size="sm"
-        className="w-full"
-        onClick={handleDelete}
-      >
-        <Trash2 className="mr-2 h-4 w-4" />
-        Delete {selectedRoom ? "Room" : "Furniture"}
-      </Button>
+      <div className="p-4 pt-0 mt-auto">
+        <Separator className="mb-4" />
+        <Button
+          variant="destructive"
+          size="sm"
+          className="w-full"
+          onClick={handleDelete}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete {entityType}
+        </Button>
+      </div>
     </div>
   )
 }

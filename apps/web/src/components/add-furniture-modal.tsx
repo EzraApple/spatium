@@ -13,14 +13,25 @@ import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { FurnitureType, FurnitureShapeTemplate, Corner } from "@apartment-planner/shared"
 import { formatInchesForEditor, parseInchesFromEditor, inchesToEighths } from "@apartment-planner/shared"
-import { Circle, Square, RectangleHorizontal } from "lucide-react"
+import { Circle, Square, RectangleHorizontal, Refrigerator } from "lucide-react"
 import { LShapedRoomIcon } from "@/components/room-shape-icons"
 
 type FurnitureOption = {
   type: FurnitureType
   label: string
   icon: React.ComponentType<{ className?: string }>
-  category: "table" | "desk"
+  category: "table" | "desk" | "seating" | "appliance"
+}
+
+function CouchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3" />
+      <path d="M2 11v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+      <path d="M4 17v2" />
+      <path d="M20 17v2" />
+    </svg>
+  )
 }
 
 const FURNITURE_OPTIONS: FurnitureOption[] = [
@@ -28,12 +39,20 @@ const FURNITURE_OPTIONS: FurnitureOption[] = [
   { type: "circle-table", label: "Circle Table", icon: Circle, category: "table" },
   { type: "rectangle-desk", label: "Rectangle Desk", icon: RectangleHorizontal, category: "desk" },
   { type: "l-shaped-desk", label: "L-Shaped Desk", icon: LShapedRoomIcon, category: "desk" },
+  { type: "couch", label: "Couch", icon: CouchIcon, category: "seating" },
+  { type: "l-shaped-couch", label: "L-Shaped Couch", icon: LShapedRoomIcon, category: "seating" },
+  { type: "fridge", label: "Fridge", icon: Refrigerator, category: "appliance" },
 ]
 
 const DEFAULT_TABLE_SIZE = inchesToEighths(36)
 const DEFAULT_DESK_WIDTH = inchesToEighths(60)
 const DEFAULT_DESK_HEIGHT = inchesToEighths(30)
 const DEFAULT_CUT = inchesToEighths(24)
+const DEFAULT_COUCH_WIDTH = inchesToEighths(72)
+const DEFAULT_COUCH_HEIGHT = inchesToEighths(36)
+const DEFAULT_L_COUCH_SIZE = inchesToEighths(84)
+const DEFAULT_L_COUCH_CUT = inchesToEighths(48)
+const DEFAULT_FRIDGE_SIZE = inchesToEighths(36)
 
 type AddFurnitureModalProps = {
   open: boolean
@@ -61,9 +80,22 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
         setWidth(formatInchesForEditor(DEFAULT_TABLE_SIZE))
         setHeight(formatInchesForEditor(DEFAULT_TABLE_SIZE))
         setRadius(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
-      } else {
+      } else if (option.category === "desk") {
         setWidth(formatInchesForEditor(DEFAULT_DESK_WIDTH))
         setHeight(formatInchesForEditor(DEFAULT_DESK_HEIGHT))
+      } else if (option.category === "seating") {
+        if (selectedType === "l-shaped-couch") {
+          setWidth(formatInchesForEditor(DEFAULT_L_COUCH_SIZE))
+          setHeight(formatInchesForEditor(DEFAULT_L_COUCH_SIZE))
+          setCutWidth(formatInchesForEditor(DEFAULT_L_COUCH_CUT))
+          setCutHeight(formatInchesForEditor(DEFAULT_L_COUCH_CUT))
+        } else {
+          setWidth(formatInchesForEditor(DEFAULT_COUCH_WIDTH))
+          setHeight(formatInchesForEditor(DEFAULT_COUCH_HEIGHT))
+        }
+      } else if (option.category === "appliance") {
+        setWidth(formatInchesForEditor(DEFAULT_FRIDGE_SIZE))
+        setHeight(formatInchesForEditor(DEFAULT_FRIDGE_SIZE))
       }
     }
   }, [selectedType])
@@ -115,6 +147,30 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
           cutCorner,
         }
         break
+      case "couch":
+        template = {
+          type: "rectangle",
+          width: parseInchesFromEditor(width) ?? DEFAULT_COUCH_WIDTH,
+          height: parseInchesFromEditor(height) ?? DEFAULT_COUCH_HEIGHT,
+        }
+        break
+      case "l-shaped-couch":
+        template = {
+          type: "l-shaped",
+          width: parseInchesFromEditor(width) ?? DEFAULT_L_COUCH_SIZE,
+          height: parseInchesFromEditor(height) ?? DEFAULT_L_COUCH_SIZE,
+          cutWidth: parseInchesFromEditor(cutWidth) ?? DEFAULT_L_COUCH_CUT,
+          cutHeight: parseInchesFromEditor(cutHeight) ?? DEFAULT_L_COUCH_CUT,
+          cutCorner,
+        }
+        break
+      case "fridge":
+        template = {
+          type: "rectangle",
+          width: parseInchesFromEditor(width) ?? DEFAULT_FRIDGE_SIZE,
+          height: parseInchesFromEditor(height) ?? DEFAULT_FRIDGE_SIZE,
+        }
+        break
     }
 
     onAdd(roomId, name, selectedType, template)
@@ -123,7 +179,7 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
   }
 
   const isCircle = selectedType === "circle-table"
-  const isLShaped = selectedType === "l-shaped-desk"
+  const isLShaped = selectedType === "l-shaped-desk" || selectedType === "l-shaped-couch"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

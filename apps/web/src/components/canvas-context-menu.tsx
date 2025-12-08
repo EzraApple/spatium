@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Home, Armchair } from "lucide-react"
+import { Home, Armchair, DoorOpen } from "lucide-react"
 import type { RoomEntity } from "@apartment-planner/shared"
 
 type CanvasContextMenuProps = {
@@ -8,6 +8,7 @@ type CanvasContextMenuProps = {
   targetRoom: RoomEntity | null
   onAddRoom: () => void
   onAddFurniture: (roomId: string) => void
+  onAddDoor: (roomId: string) => void
   onClose: () => void
 }
 
@@ -17,6 +18,7 @@ export function CanvasContextMenu({
   targetRoom,
   onAddRoom,
   onAddFurniture,
+  onAddDoor,
   onClose,
 }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -69,16 +71,28 @@ export function CanvasContextMenu({
         Add Room
       </button>
       {targetRoom && (
-        <button
-          className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-          onClick={() => {
-            onAddFurniture(targetRoom.id)
-            onClose()
-          }}
-        >
-          <Armchair className="h-4 w-4" />
-          Add Furniture to {targetRoom.name}
-        </button>
+        <>
+          <button
+            className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onAddFurniture(targetRoom.id)
+              onClose()
+            }}
+          >
+            <Armchair className="h-4 w-4" />
+            Add Furniture to {targetRoom.name}
+          </button>
+          <button
+            className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onAddDoor(targetRoom.id)
+              onClose()
+            }}
+          >
+            <DoorOpen className="h-4 w-4" />
+            Add Door to {targetRoom.name}
+          </button>
+        </>
       )}
     </div>
   )

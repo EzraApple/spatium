@@ -1,4 +1,4 @@
-type CursorType = "pointer" | "grab" | "grabbing"
+type CursorType = "pointer" | "grab" | "grabbing" | "crosshair"
 
 type LocalCursorProps = {
   color: string | null
@@ -118,17 +118,44 @@ function GrabbingCursor({ color }: { color: string }) {
   )
 }
 
+function CrosshairCursor({ color }: { color: string }) {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="2.5" />
+      <circle cx="12" cy="12" r="8" stroke={color} strokeWidth="1.5" />
+      <line x1="12" y1="2" x2="12" y2="6" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="12" y1="2" x2="12" y2="6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="12" y1="18" x2="12" y2="22" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="12" y1="18" x2="12" y2="22" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="2" y1="12" x2="6" y2="12" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="2" y1="12" x2="6" y2="12" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="18" y1="12" x2="22" y2="12" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="18" y1="12" x2="22" y2="12" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function LocalCursor({ color, x, y, cursorType = "pointer" }: LocalCursorProps) {
   if (!color || x <= 0 || y <= 0) return null
+
+  const offsetX = cursorType === "crosshair" ? -12 : 0
+  const offsetY = cursorType === "crosshair" ? -12 : 0
 
   return (
     <div
       className="pointer-events-none fixed z-50"
-      style={{ left: x, top: y }}
+      style={{ left: x + offsetX, top: y + offsetY }}
     >
       {cursorType === "pointer" && <PointerCursor color={color} />}
       {cursorType === "grab" && <GrabCursor color={color} />}
       {cursorType === "grabbing" && <GrabbingCursor color={color} />}
+      {cursorType === "crosshair" && <CrosshairCursor color={color} />}
     </div>
   )
 }

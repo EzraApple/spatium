@@ -22,11 +22,13 @@ import type {
   Layout,
   RoomEntity,
   FurnitureEntity,
+  DoorEntity,
   ShapeTemplate,
   FurnitureType,
   FurnitureShapeTemplate,
+  HingeSide,
 } from "@apartment-planner/shared"
-import { shapeToVertices, feetToEighths, furnitureShapeToVertices } from "@apartment-planner/shared"
+import { shapeToVertices, feetToEighths, furnitureShapeToVertices, inchesToEighths } from "@apartment-planner/shared"
 
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -46,6 +48,11 @@ export function EditorPage() {
   } | null>(null)
   const [cursorMode, setCursorMode] = useState<CursorMode>("grab")
   const [isOverCanvas, setIsOverCanvas] = useState(false)
+  const [placingDoor, setPlacingDoor] = useState<{
+    roomId: string
+    doorWidth: number
+    hingeSide: HingeSide
+  } | null>(null)
 
   const {
     cursors,
@@ -61,6 +68,7 @@ export function EditorPage() {
   const {
     rooms,
     furniture,
+    doors,
     addRoom,
     updateRoom,
     deleteRoom,
@@ -71,6 +79,9 @@ export function EditorPage() {
     deleteFurniture,
     moveFurnitureLocal,
     moveFurnitureSync,
+    addDoor,
+    updateDoor,
+    deleteDoor,
   } = useLayoutSync(layout?.roomCode)
 
   const {
@@ -96,6 +107,22 @@ export function EditorPage() {
     onFurnitureMove: moveFurnitureLocal,
     onFurnitureMoveThrottled: moveFurnitureSync,
   })
+
+  useEffect(() => {
+    if (!selectedId || !selectedType) return
+
+    if (selectedType === "furniture") {
+      const f = furniture.find((item) => item.id === selectedId)
+      if (f) {
+        setExpandedRoomIds((prev) => new Set([...prev, f.roomId]))
+      }
+    } else if (selectedType === "door") {
+      const d = doors.find((item) => item.id === selectedId)
+      if (d) {
+        setExpandedRoomIds((prev) => new Set([...prev, d.roomId]))
+      }
+    }
+  }, [selectedId, selectedType, furniture, doors])
 
   useEffect(() => {
     if (!id) {
@@ -223,6 +250,56 @@ export function EditorPage() {
     }
   }
 
+  const handleSelectDoor = (doorId: string) => {
+    select(doorId, "door")
+    const d = doors.find((item) => item.id === doorId)
+    if (d) {
+      setExpandedRoomIds((prev) => new Set([...prev, d.roomId]))
+    }
+  }
+
+  const handleStartDoorPlacement = (roomId: string) => {
+    setPlacingDoor({
+      roomId,
+      doorWidth: inchesToEighths(36),
+      hingeSide: "left",
+    })
+    setExpandedRoomIds((prev) => new Set([...prev, roomId]))
+  }
+
+  const handleDoorPlace = (roomId: string, wallIndex: number, positionOnWall: number) => {
+    if (!placingDoor) return
+
+    const door: DoorEntity = {
+      type: "door",
+      id: crypto.randomUUID(),
+      name: "Door",
+      roomId,
+      wallIndex,
+      positionOnWall,
+      width: placingDoor.doorWidth,
+      hingeSide: placingDoor.hingeSide,
+    }
+
+    addDoor(door)
+    select(door.id, "door")
+    setPlacingDoor(null)
+  }
+
+  const handleDoorPlaceCancel = () => {
+    setPlacingDoor(null)
+  }
+
+  const handleDeleteDoor = (doorId: string) => {
+    deleteDoor(doorId)
+    deselect()
+  }
+
+  const getSelectedDoor = useCallback(() => {
+    if (selectedType !== "door" || !selectedId) return null
+    return doors.find((d) => d.id === selectedId) ?? null
+  }, [selectedType, selectedId, doors])
+
   const handleCanvasClick = () => {
     if (!isDragging) {
       deselect()
@@ -258,6 +335,7 @@ export function EditorPage() {
 
   const selectedRoom = getSelectedRoom()
   const selectedFurniture = getSelectedFurniture()
+  const selectedDoor = getSelectedDoor()
 
   return (
     <div
@@ -271,16 +349,19 @@ export function EditorPage() {
         <RoomSidebar
           rooms={rooms}
           furniture={furniture}
+          doors={doors}
           selectedId={selectedId}
           selectedType={selectedType}
           expandedRoomIds={expandedRoomIds}
           onToggleExpanded={handleToggleExpanded}
           onAddRoom={() => setAddRoomModalOpen(true)}
           onAddFurniture={handleOpenAddFurnitureModal}
+          onAddDoor={handleStartDoorPlacement}
           onRoomNameChange={handleRoomNameChange}
           onSelectFurniture={handleSelectFurniture}
+          onSelectDoor={handleSelectDoor}
         />
-        <SidebarInset className="flex flex-col relative">
+        <SidebarInset className="flex flex-col relative overflow-hidden">
           <div
             className="relative flex-1"
             onClick={handleClick}
@@ -288,18 +369,23 @@ export function EditorPage() {
             onMouseLeave={() => setIsOverCanvas(false)}
           >
             <RoomCanvas
+              roomCode={layout.roomCode}
               rooms={rooms}
               furniture={furniture}
+              doors={doors}
               selectedId={selectedId}
               selectedType={selectedType}
               draggingRoomId={draggingRoomId}
               draggingFurnitureId={draggingFurnitureId}
+              placingDoor={placingDoor}
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
               onDragUpdate={updateDragPosition}
               onCanvasClick={handleCanvasClick}
               onContextMenu={handleContextMenu}
               onCursorModeChange={setCursorMode}
+              onDoorPlace={handleDoorPlace}
+              onDoorPlaceCancel={handleDoorPlaceCancel}
               checkRoomCollision={checkRoomCollision}
               checkFurnitureCollision={checkFurnitureCollision}
             />
@@ -311,6 +397,7 @@ export function EditorPage() {
                 targetRoom={contextMenu.targetRoom}
                 onAddRoom={() => setAddRoomModalOpen(true)}
                 onAddFurniture={handleOpenAddFurnitureModal}
+                onAddDoor={handleStartDoorPlacement}
                 onClose={() => setContextMenu(null)}
               />
             )}
@@ -328,10 +415,13 @@ export function EditorPage() {
           <PropertyPanel
             selectedRoom={selectedRoom}
             selectedFurniture={selectedFurniture}
+            selectedDoor={selectedDoor}
             onRoomUpdate={updateRoom}
             onFurnitureUpdate={updateFurniture}
+            onDoorUpdate={updateDoor}
             onRoomDelete={handleDeleteRoom}
             onFurnitureDelete={handleDeleteFurniture}
+            onDoorDelete={handleDeleteDoor}
           />
         </SidebarInset>
       </SidebarProvider>

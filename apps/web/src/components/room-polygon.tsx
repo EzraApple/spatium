@@ -66,8 +66,8 @@ export function RoomPolygon({
   const fillColor = isColliding
     ? "hsl(0 84% 60% / 0.1)"
     : isSelected
-      ? "hsl(221 83% 53% / 0.15)"
-      : "hsl(214 100% 97% / 0.8)"
+      ? "hsl(221 83% 53% / 0.08)"
+      : "white"
 
   const strokeWidth = (isSelected ? 2 : 1.5) * pixelScale
   const dimensionFontSize = 11 * pixelScale

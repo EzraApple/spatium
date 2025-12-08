@@ -22,7 +22,7 @@ export default class SpatiumServer implements Party.Server {
 
     if (data.type.startsWith("cursor-")) {
       this.cursorHandler.onMessage(message, sender)
-    } else if (data.type.startsWith("room-") || data.type.startsWith("furniture-")) {
+    } else if (data.type.startsWith("room-") || data.type.startsWith("furniture-") || data.type.startsWith("door-")) {
       await this.layoutHandler.onMessage(message, sender)
     }
   }

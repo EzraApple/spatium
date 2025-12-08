@@ -5,6 +5,7 @@ import type {
   LayoutDocument,
   RoomEntity,
   FurnitureEntity,
+  DoorEntity,
   Point,
 } from "@apartment-planner/shared"
 import { getLayoutByRoomCode, updateLayoutData } from "../lib/db"
@@ -76,6 +77,7 @@ export class LayoutHandler {
         (e) => {
           if (e.type === "room" && e.id === data.roomId) return false
           if (e.type === "furniture" && e.roomId === data.roomId) return false
+          if (e.type === "door" && e.roomId === data.roomId) return false
           return true
         }
       )
@@ -149,6 +151,40 @@ export class LayoutHandler {
         furnitureId: data.furnitureId,
         position: data.position,
         roomId: data.roomId,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "door-add") {
+      this.document.entities.push(data.door)
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "door-added",
+        door: data.door,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "door-update") {
+      this.document.entities = this.document.entities.map((e) =>
+        e.type === "door" && e.id === data.door.id ? data.door : e
+      )
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "door-updated",
+        door: data.door,
+        clientId: sender.id,
+      }
+      this.broadcast(broadcastMessage, sender.id)
+    } else if (data.type === "door-delete") {
+      this.document.entities = this.document.entities.filter(
+        (e) => !(e.type === "door" && e.id === data.doorId)
+      )
+      await this.persistDocument()
+
+      const broadcastMessage: ServerMessage = {
+        type: "door-deleted",
+        doorId: data.doorId,
         clientId: sender.id,
       }
       this.broadcast(broadcastMessage, sender.id)
