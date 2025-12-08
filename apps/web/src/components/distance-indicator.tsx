@@ -75,19 +75,19 @@ export function DistanceIndicator({
         y1={scaledFrom.y}
         x2={scaledTo.x}
         y2={scaledTo.y}
-        stroke="hsl(262 83% 58%)"
+        stroke="hsl(220 9% 46%)"
         strokeWidth={strokeWidth}
         strokeDasharray={`${4 * pixelScale} ${2 * pixelScale}`}
       />
 
       <polygon
         points={arrow1Points.map((p) => `${p.x},${p.y}`).join(" ")}
-        fill="hsl(262 83% 58%)"
+        fill="hsl(220 9% 46%)"
       />
 
       <polygon
         points={arrow2Points.map((p) => `${p.x},${p.y}`).join(" ")}
-        fill="hsl(262 83% 58%)"
+        fill="hsl(220 9% 46%)"
       />
 
       <rect
@@ -95,7 +95,7 @@ export function DistanceIndicator({
         y={labelY - fontSize * 0.7}
         width={formattedDistance.length * fontSize * 0.7}
         height={fontSize * 1.4}
-        fill="hsl(262 83% 58%)"
+        fill="hsl(220 9% 46%)"
         rx={3 * pixelScale}
       />
 
