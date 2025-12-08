@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { FurnitureType, FurnitureShapeTemplate, Corner } from "@apartment-planner/shared"
-import { formatEighths, parseToEighths, feetToEighths } from "@apartment-planner/shared"
+import { formatInchesForEditor, parseInchesFromEditor, inchesToEighths } from "@apartment-planner/shared"
 import { Circle, Square, RectangleHorizontal } from "lucide-react"
 import { LShapedRoomIcon } from "@/components/room-shape-icons"
 
@@ -30,10 +30,10 @@ const FURNITURE_OPTIONS: FurnitureOption[] = [
   { type: "l-shaped-desk", label: "L-Shaped Desk", icon: LShapedRoomIcon, category: "desk" },
 ]
 
-const DEFAULT_TABLE_SIZE = feetToEighths(3)
-const DEFAULT_DESK_WIDTH = feetToEighths(5)
-const DEFAULT_DESK_HEIGHT = feetToEighths(2.5)
-const DEFAULT_CUT = feetToEighths(2)
+const DEFAULT_TABLE_SIZE = inchesToEighths(36)
+const DEFAULT_DESK_WIDTH = inchesToEighths(60)
+const DEFAULT_DESK_HEIGHT = inchesToEighths(30)
+const DEFAULT_CUT = inchesToEighths(24)
 
 type AddFurnitureModalProps = {
   open: boolean
@@ -45,11 +45,11 @@ type AddFurnitureModalProps = {
 export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurnitureModalProps) {
   const [selectedType, setSelectedType] = useState<FurnitureType>("square-table")
   const [name, setName] = useState("Square Table")
-  const [width, setWidth] = useState(formatEighths(DEFAULT_TABLE_SIZE))
-  const [height, setHeight] = useState(formatEighths(DEFAULT_TABLE_SIZE))
-  const [radius, setRadius] = useState(formatEighths(DEFAULT_TABLE_SIZE / 2))
-  const [cutWidth, setCutWidth] = useState(formatEighths(DEFAULT_CUT))
-  const [cutHeight, setCutHeight] = useState(formatEighths(DEFAULT_CUT))
+  const [width, setWidth] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE))
+  const [height, setHeight] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE))
+  const [radius, setRadius] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
+  const [cutWidth, setCutWidth] = useState(formatInchesForEditor(DEFAULT_CUT))
+  const [cutHeight, setCutHeight] = useState(formatInchesForEditor(DEFAULT_CUT))
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
 
   useEffect(() => {
@@ -58,12 +58,12 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
       setName(option.label)
       
       if (option.category === "table") {
-        setWidth(formatEighths(DEFAULT_TABLE_SIZE))
-        setHeight(formatEighths(DEFAULT_TABLE_SIZE))
-        setRadius(formatEighths(DEFAULT_TABLE_SIZE / 2))
+        setWidth(formatInchesForEditor(DEFAULT_TABLE_SIZE))
+        setHeight(formatInchesForEditor(DEFAULT_TABLE_SIZE))
+        setRadius(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
       } else {
-        setWidth(formatEighths(DEFAULT_DESK_WIDTH))
-        setHeight(formatEighths(DEFAULT_DESK_HEIGHT))
+        setWidth(formatInchesForEditor(DEFAULT_DESK_WIDTH))
+        setHeight(formatInchesForEditor(DEFAULT_DESK_HEIGHT))
       }
     }
   }, [selectedType])
@@ -71,11 +71,11 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
   const resetForm = () => {
     setSelectedType("square-table")
     setName("Square Table")
-    setWidth(formatEighths(DEFAULT_TABLE_SIZE))
-    setHeight(formatEighths(DEFAULT_TABLE_SIZE))
-    setRadius(formatEighths(DEFAULT_TABLE_SIZE / 2))
-    setCutWidth(formatEighths(DEFAULT_CUT))
-    setCutHeight(formatEighths(DEFAULT_CUT))
+    setWidth(formatInchesForEditor(DEFAULT_TABLE_SIZE))
+    setHeight(formatInchesForEditor(DEFAULT_TABLE_SIZE))
+    setRadius(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
+    setCutWidth(formatInchesForEditor(DEFAULT_CUT))
+    setCutHeight(formatInchesForEditor(DEFAULT_CUT))
     setCutCorner("top-right")
   }
 
@@ -88,30 +88,30 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
       case "square-table":
         template = {
           type: "rectangle",
-          width: parseToEighths(width) ?? DEFAULT_TABLE_SIZE,
-          height: parseToEighths(height) ?? DEFAULT_TABLE_SIZE,
+          width: parseInchesFromEditor(width) ?? DEFAULT_TABLE_SIZE,
+          height: parseInchesFromEditor(height) ?? DEFAULT_TABLE_SIZE,
         }
         break
       case "circle-table":
         template = {
           type: "circle",
-          radius: parseToEighths(radius) ?? DEFAULT_TABLE_SIZE / 2,
+          radius: parseInchesFromEditor(radius) ?? DEFAULT_TABLE_SIZE / 2,
         }
         break
       case "rectangle-desk":
         template = {
           type: "rectangle",
-          width: parseToEighths(width) ?? DEFAULT_DESK_WIDTH,
-          height: parseToEighths(height) ?? DEFAULT_DESK_HEIGHT,
+          width: parseInchesFromEditor(width) ?? DEFAULT_DESK_WIDTH,
+          height: parseInchesFromEditor(height) ?? DEFAULT_DESK_HEIGHT,
         }
         break
       case "l-shaped-desk":
         template = {
           type: "l-shaped",
-          width: parseToEighths(width) ?? DEFAULT_DESK_WIDTH,
-          height: parseToEighths(height) ?? DEFAULT_DESK_HEIGHT,
-          cutWidth: parseToEighths(cutWidth) ?? DEFAULT_CUT,
-          cutHeight: parseToEighths(cutHeight) ?? DEFAULT_CUT,
+          width: parseInchesFromEditor(width) ?? DEFAULT_DESK_WIDTH,
+          height: parseInchesFromEditor(height) ?? DEFAULT_DESK_HEIGHT,
+          cutWidth: parseInchesFromEditor(cutWidth) ?? DEFAULT_CUT,
+          cutHeight: parseInchesFromEditor(cutHeight) ?? DEFAULT_CUT,
           cutCorner,
         }
         break
@@ -167,32 +167,32 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
           <div className="space-y-4">
             {isCircle ? (
               <div className="space-y-2">
-                <Label htmlFor="furniture-radius">Radius</Label>
+                <Label htmlFor="furniture-radius">Radius (in)</Label>
                 <Input
                   id="furniture-radius"
                   value={radius}
                   onChange={(e) => setRadius(e.target.value)}
-                  placeholder={'1\'6"'}
+                  placeholder="18"
                 />
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="furniture-width">Width</Label>
+                  <Label htmlFor="furniture-width">Width (in)</Label>
                   <Input
                     id="furniture-width"
                     value={width}
                     onChange={(e) => setWidth(e.target.value)}
-                    placeholder="3'"
+                    placeholder="36"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="furniture-height">Height</Label>
+                  <Label htmlFor="furniture-height">Height (in)</Label>
                   <Input
                     id="furniture-height"
                     value={height}
                     onChange={(e) => setHeight(e.target.value)}
-                    placeholder="3'"
+                    placeholder="36"
                   />
                 </div>
               </div>
@@ -202,21 +202,21 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="furniture-cut-width">Cut Width</Label>
+                    <Label htmlFor="furniture-cut-width">Cut Width (in)</Label>
                     <Input
                       id="furniture-cut-width"
                       value={cutWidth}
                       onChange={(e) => setCutWidth(e.target.value)}
-                      placeholder="2'"
+                      placeholder="24"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="furniture-cut-height">Cut Height</Label>
+                    <Label htmlFor="furniture-cut-height">Cut Height (in)</Label>
                     <Input
                       id="furniture-cut-height"
                       value={cutHeight}
                       onChange={(e) => setCutHeight(e.target.value)}
-                      placeholder="2'"
+                      placeholder="24"
                     />
                   </div>
                 </div>

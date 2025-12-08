@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { ShapeTemplate, Corner } from "@apartment-planner/shared"
-import { formatEighths, parseToEighths, feetToEighths } from "@apartment-planner/shared"
+import { formatInchesForEditor, parseInchesFromEditor, inchesToEighths } from "@apartment-planner/shared"
 import {
   RectangleRoomIcon,
   LShapedRoomIcon,
@@ -27,10 +27,10 @@ const SHAPE_OPTIONS: { type: ShapeType; label: string; icon: typeof RectangleRoo
   { type: "beveled", label: "Beveled", icon: BeveledRoomIcon },
 ]
 
-const DEFAULT_WIDTH = feetToEighths(10)
-const DEFAULT_HEIGHT = feetToEighths(8)
-const DEFAULT_CUT = feetToEighths(3)
-const DEFAULT_BEVEL = feetToEighths(2)
+const DEFAULT_WIDTH = inchesToEighths(120)
+const DEFAULT_HEIGHT = inchesToEighths(96)
+const DEFAULT_CUT = inchesToEighths(36)
+const DEFAULT_BEVEL = inchesToEighths(24)
 
 type AddRoomModalProps = {
   open: boolean
@@ -41,29 +41,29 @@ type AddRoomModalProps = {
 export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
   const [selectedShape, setSelectedShape] = useState<ShapeType>("rectangle")
   const [name, setName] = useState("New Room")
-  const [width, setWidth] = useState(formatEighths(DEFAULT_WIDTH))
-  const [height, setHeight] = useState(formatEighths(DEFAULT_HEIGHT))
-  const [cutWidth, setCutWidth] = useState(formatEighths(DEFAULT_CUT))
-  const [cutHeight, setCutHeight] = useState(formatEighths(DEFAULT_CUT))
+  const [width, setWidth] = useState(formatInchesForEditor(DEFAULT_WIDTH))
+  const [height, setHeight] = useState(formatInchesForEditor(DEFAULT_HEIGHT))
+  const [cutWidth, setCutWidth] = useState(formatInchesForEditor(DEFAULT_CUT))
+  const [cutHeight, setCutHeight] = useState(formatInchesForEditor(DEFAULT_CUT))
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
-  const [bevelSize, setBevelSize] = useState(formatEighths(DEFAULT_BEVEL))
+  const [bevelSize, setBevelSize] = useState(formatInchesForEditor(DEFAULT_BEVEL))
   const [bevelCorner, setBevelCorner] = useState<Corner>("top-right")
 
   const resetForm = () => {
     setSelectedShape("rectangle")
     setName("New Room")
-    setWidth(formatEighths(DEFAULT_WIDTH))
-    setHeight(formatEighths(DEFAULT_HEIGHT))
-    setCutWidth(formatEighths(DEFAULT_CUT))
-    setCutHeight(formatEighths(DEFAULT_CUT))
+    setWidth(formatInchesForEditor(DEFAULT_WIDTH))
+    setHeight(formatInchesForEditor(DEFAULT_HEIGHT))
+    setCutWidth(formatInchesForEditor(DEFAULT_CUT))
+    setCutHeight(formatInchesForEditor(DEFAULT_CUT))
     setCutCorner("top-right")
-    setBevelSize(formatEighths(DEFAULT_BEVEL))
+    setBevelSize(formatInchesForEditor(DEFAULT_BEVEL))
     setBevelCorner("top-right")
   }
 
   const handleAdd = () => {
-    const widthEighths = parseToEighths(width) ?? DEFAULT_WIDTH
-    const heightEighths = parseToEighths(height) ?? DEFAULT_HEIGHT
+    const widthEighths = parseInchesFromEditor(width) ?? DEFAULT_WIDTH
+    const heightEighths = parseInchesFromEditor(height) ?? DEFAULT_HEIGHT
 
     let template: ShapeTemplate
 
@@ -76,8 +76,8 @@ export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
           type: "l-shaped",
           width: widthEighths,
           height: heightEighths,
-          cutWidth: parseToEighths(cutWidth) ?? DEFAULT_CUT,
-          cutHeight: parseToEighths(cutHeight) ?? DEFAULT_CUT,
+          cutWidth: parseInchesFromEditor(cutWidth) ?? DEFAULT_CUT,
+          cutHeight: parseInchesFromEditor(cutHeight) ?? DEFAULT_CUT,
           cutCorner,
         }
         break
@@ -86,7 +86,7 @@ export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
           type: "beveled",
           width: widthEighths,
           height: heightEighths,
-          bevelSize: parseToEighths(bevelSize) ?? DEFAULT_BEVEL,
+          bevelSize: parseInchesFromEditor(bevelSize) ?? DEFAULT_BEVEL,
           bevelCorner,
         }
         break
@@ -139,21 +139,21 @@ export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="width">Width</Label>
+                <Label htmlFor="width">Width (in)</Label>
                 <Input
                   id="width"
                   value={width}
                   onChange={(e) => setWidth(e.target.value)}
-                  placeholder="10'"
+                  placeholder="120"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="height">Height</Label>
+                <Label htmlFor="height">Height (in)</Label>
                 <Input
                   id="height"
                   value={height}
                   onChange={(e) => setHeight(e.target.value)}
-                  placeholder="8'"
+                  placeholder="96"
                 />
               </div>
             </div>
@@ -162,21 +162,21 @@ export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cut-width">Cut Width</Label>
+                    <Label htmlFor="cut-width">Cut Width (in)</Label>
                     <Input
                       id="cut-width"
                       value={cutWidth}
                       onChange={(e) => setCutWidth(e.target.value)}
-                      placeholder="3'"
+                      placeholder="36"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cut-height">Cut Height</Label>
+                    <Label htmlFor="cut-height">Cut Height (in)</Label>
                     <Input
                       id="cut-height"
                       value={cutHeight}
                       onChange={(e) => setCutHeight(e.target.value)}
-                      placeholder="3'"
+                      placeholder="36"
                     />
                   </div>
                 </div>
@@ -204,12 +204,12 @@ export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
             {selectedShape === "beveled" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="bevel-size">Bevel Size</Label>
+                  <Label htmlFor="bevel-size">Bevel Size (in)</Label>
                   <Input
                     id="bevel-size"
                     value={bevelSize}
                     onChange={(e) => setBevelSize(e.target.value)}
-                    placeholder="2'"
+                    placeholder="24"
                   />
                 </div>
                 <div className="space-y-2">

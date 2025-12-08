@@ -101,3 +101,18 @@ export function eighthsToFeet(eighths: number): number {
   return eighths / 8 / 12
 }
 
+export function formatInchesForEditor(eighths: number): string {
+  const inches = eighths / 8
+  return String(Math.round(inches * 100) / 100)
+}
+
+export function parseInchesFromEditor(input: string): number | null {
+  const cleaned = input.trim()
+  if (!cleaned) return null
+
+  const num = parseFloat(cleaned)
+  if (isNaN(num) || num < 0) return null
+
+  return Math.round(num * 8)
+}
+

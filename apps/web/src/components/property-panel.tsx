@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import type { RoomEntity, FurnitureEntity, ShapeTemplate, FurnitureShapeTemplate, Corner } from "@apartment-planner/shared"
-import { formatEighths, parseToEighths, shapeToVertices, furnitureShapeToVertices } from "@apartment-planner/shared"
+import { formatInchesForEditor, parseInchesFromEditor, shapeToVertices } from "@apartment-planner/shared"
 
 type PropertyPanelProps = {
   selectedRoom: RoomEntity | null
@@ -37,31 +37,31 @@ export function PropertyPanel({
   useEffect(() => {
     if (selectedRoom) {
       setName(selectedRoom.name)
-      setWidth(formatEighths(selectedRoom.shapeTemplate.width))
-      setHeight(formatEighths(selectedRoom.shapeTemplate.height))
+      setWidth(formatInchesForEditor(selectedRoom.shapeTemplate.width))
+      setHeight(formatInchesForEditor(selectedRoom.shapeTemplate.height))
 
       if (selectedRoom.shapeTemplate.type === "l-shaped") {
-        setCutWidth(formatEighths(selectedRoom.shapeTemplate.cutWidth))
-        setCutHeight(formatEighths(selectedRoom.shapeTemplate.cutHeight))
+        setCutWidth(formatInchesForEditor(selectedRoom.shapeTemplate.cutWidth))
+        setCutHeight(formatInchesForEditor(selectedRoom.shapeTemplate.cutHeight))
         setCutCorner(selectedRoom.shapeTemplate.cutCorner)
       }
 
       if (selectedRoom.shapeTemplate.type === "beveled") {
-        setBevelSize(formatEighths(selectedRoom.shapeTemplate.bevelSize))
+        setBevelSize(formatInchesForEditor(selectedRoom.shapeTemplate.bevelSize))
         setBevelCorner(selectedRoom.shapeTemplate.bevelCorner)
       }
     } else if (selectedFurniture) {
       setName(selectedFurniture.name)
       
       if (selectedFurniture.shapeTemplate.type === "circle") {
-        setRadius(formatEighths(selectedFurniture.shapeTemplate.radius))
+        setRadius(formatInchesForEditor(selectedFurniture.shapeTemplate.radius))
       } else {
-        setWidth(formatEighths(selectedFurniture.shapeTemplate.width))
-        setHeight(formatEighths(selectedFurniture.shapeTemplate.height))
+        setWidth(formatInchesForEditor(selectedFurniture.shapeTemplate.width))
+        setHeight(formatInchesForEditor(selectedFurniture.shapeTemplate.height))
         
         if (selectedFurniture.shapeTemplate.type === "l-shaped") {
-          setCutWidth(formatEighths(selectedFurniture.shapeTemplate.cutWidth))
-          setCutHeight(formatEighths(selectedFurniture.shapeTemplate.cutHeight))
+          setCutWidth(formatInchesForEditor(selectedFurniture.shapeTemplate.cutWidth))
+          setCutHeight(formatInchesForEditor(selectedFurniture.shapeTemplate.cutHeight))
           setCutCorner(selectedFurniture.shapeTemplate.cutCorner)
         }
       }
@@ -71,8 +71,8 @@ export function PropertyPanel({
   const handleRoomSave = useCallback(() => {
     if (!selectedRoom) return
 
-    const widthEighths = parseToEighths(width) ?? selectedRoom.shapeTemplate.width
-    const heightEighths = parseToEighths(height) ?? selectedRoom.shapeTemplate.height
+    const widthEighths = parseInchesFromEditor(width) ?? selectedRoom.shapeTemplate.width
+    const heightEighths = parseInchesFromEditor(height) ?? selectedRoom.shapeTemplate.height
 
     let template: ShapeTemplate
 
@@ -85,8 +85,8 @@ export function PropertyPanel({
           type: "l-shaped",
           width: widthEighths,
           height: heightEighths,
-          cutWidth: parseToEighths(cutWidth) ?? selectedRoom.shapeTemplate.cutWidth,
-          cutHeight: parseToEighths(cutHeight) ?? selectedRoom.shapeTemplate.cutHeight,
+          cutWidth: parseInchesFromEditor(cutWidth) ?? selectedRoom.shapeTemplate.cutWidth,
+          cutHeight: parseInchesFromEditor(cutHeight) ?? selectedRoom.shapeTemplate.cutHeight,
           cutCorner,
         }
         break
@@ -95,7 +95,7 @@ export function PropertyPanel({
           type: "beveled",
           width: widthEighths,
           height: heightEighths,
-          bevelSize: parseToEighths(bevelSize) ?? selectedRoom.shapeTemplate.bevelSize,
+          bevelSize: parseInchesFromEditor(bevelSize) ?? selectedRoom.shapeTemplate.bevelSize,
           bevelCorner,
         }
         break
@@ -119,22 +119,22 @@ export function PropertyPanel({
     if (selectedFurniture.shapeTemplate.type === "circle") {
       template = {
         type: "circle",
-        radius: parseToEighths(radius) ?? selectedFurniture.shapeTemplate.radius,
+        radius: parseInchesFromEditor(radius) ?? selectedFurniture.shapeTemplate.radius,
       }
     } else if (selectedFurniture.shapeTemplate.type === "l-shaped") {
       template = {
         type: "l-shaped",
-        width: parseToEighths(width) ?? selectedFurniture.shapeTemplate.width,
-        height: parseToEighths(height) ?? selectedFurniture.shapeTemplate.height,
-        cutWidth: parseToEighths(cutWidth) ?? selectedFurniture.shapeTemplate.cutWidth,
-        cutHeight: parseToEighths(cutHeight) ?? selectedFurniture.shapeTemplate.cutHeight,
+        width: parseInchesFromEditor(width) ?? selectedFurniture.shapeTemplate.width,
+        height: parseInchesFromEditor(height) ?? selectedFurniture.shapeTemplate.height,
+        cutWidth: parseInchesFromEditor(cutWidth) ?? selectedFurniture.shapeTemplate.cutWidth,
+        cutHeight: parseInchesFromEditor(cutHeight) ?? selectedFurniture.shapeTemplate.cutHeight,
         cutCorner,
       }
     } else {
       template = {
         type: "rectangle",
-        width: parseToEighths(width) ?? selectedFurniture.shapeTemplate.width,
-        height: parseToEighths(height) ?? selectedFurniture.shapeTemplate.height,
+        width: parseInchesFromEditor(width) ?? selectedFurniture.shapeTemplate.width,
+        height: parseInchesFromEditor(height) ?? selectedFurniture.shapeTemplate.height,
       }
     }
 
@@ -214,7 +214,7 @@ export function PropertyPanel({
 
         {shapeType === "circle" ? (
           <div className="space-y-2">
-            <Label htmlFor="prop-radius">Radius</Label>
+            <Label htmlFor="prop-radius">Radius (in)</Label>
             <Input
               id="prop-radius"
               value={radius}
@@ -225,7 +225,7 @@ export function PropertyPanel({
         ) : (
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2">
-              <Label htmlFor="prop-width">Width</Label>
+              <Label htmlFor="prop-width">Width (in)</Label>
               <Input
                 id="prop-width"
                 value={width}
@@ -234,7 +234,7 @@ export function PropertyPanel({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prop-height">Height</Label>
+              <Label htmlFor="prop-height">Height (in)</Label>
               <Input
                 id="prop-height"
                 value={height}
@@ -249,7 +249,7 @@ export function PropertyPanel({
           <>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label htmlFor="prop-cut-width">Cut Width</Label>
+                <Label htmlFor="prop-cut-width">Cut W (in)</Label>
                 <Input
                   id="prop-cut-width"
                   value={cutWidth}
@@ -258,7 +258,7 @@ export function PropertyPanel({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prop-cut-height">Cut Height</Label>
+                <Label htmlFor="prop-cut-height">Cut H (in)</Label>
                 <Input
                   id="prop-cut-height"
                   value={cutHeight}
@@ -295,7 +295,7 @@ export function PropertyPanel({
         {shapeType === "beveled" && selectedRoom && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="prop-bevel-size">Bevel Size</Label>
+              <Label htmlFor="prop-bevel-size">Bevel Size (in)</Label>
               <Input
                 id="prop-bevel-size"
                 value={bevelSize}
