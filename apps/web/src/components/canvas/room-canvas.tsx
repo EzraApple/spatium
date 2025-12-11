@@ -384,9 +384,9 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     if (!selectedRoom) return null
 
     const vertices = getRoomVertices(selectedRoom)
-    const scaledVertices = vertices.map((v) => ({
-      x: (v.x + selectedRoom.position.x) * scale,
-      y: (v.y + selectedRoom.position.y) * scale,
+    const localScaledVertices = vertices.map((v) => ({
+      x: v.x * scale,
+      y: v.y * scale,
     }))
 
     const titleFontSize = 13 * pixelScale
@@ -395,9 +395,14 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     const textWidth = selectedRoom.name.length * titleFontSize * 0.55
     const textHeight = titleFontSize * 1.05
 
+    const localX = localScaledVertices.reduce((sum, v) => sum + v.x, 0) / localScaledVertices.length
+    const localY = Math.min(...localScaledVertices.map((v) => v.y)) - titleOffset
+
     return {
-      x: scaledVertices.reduce((sum, v) => sum + v.x, 0) / scaledVertices.length,
-      y: Math.min(...scaledVertices.map((v) => v.y)) - titleOffset,
+      translateX: selectedRoom.position.x * scale,
+      translateY: selectedRoom.position.y * scale,
+      localX,
+      localY,
       fontSize: titleFontSize,
       roomName: selectedRoom.name,
       bgWidth: textWidth + padding * 2,
@@ -586,10 +591,14 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       ))}
 
       {selectedRoomLabel && (
-        <g className="pointer-events-none select-none">
+        <g
+          transform={`translate(${selectedRoomLabel.translateX}, ${selectedRoomLabel.translateY})`}
+          style={draggingRoomId === selectedId ? { transition: "transform 60ms ease-out" } : undefined}
+          className="pointer-events-none select-none"
+        >
           <rect
-            x={selectedRoomLabel.x - selectedRoomLabel.bgWidth / 2}
-            y={selectedRoomLabel.y - selectedRoomLabel.bgHeight / 2}
+            x={selectedRoomLabel.localX - selectedRoomLabel.bgWidth / 2}
+            y={selectedRoomLabel.localY - selectedRoomLabel.bgHeight / 2}
             width={selectedRoomLabel.bgWidth}
             height={selectedRoomLabel.bgHeight}
             rx={3 * pixelScale}
@@ -598,8 +607,8 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
             fillOpacity={0.92}
           />
           <text
-            x={selectedRoomLabel.x}
-            y={selectedRoomLabel.y}
+            x={selectedRoomLabel.localX}
+            y={selectedRoomLabel.localY}
             textAnchor="middle"
             dominantBaseline="middle"
             fill="hsl(222 47% 25%)"
