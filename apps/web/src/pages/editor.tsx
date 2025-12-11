@@ -7,6 +7,7 @@ import { RoomCanvas, type CursorMode, type RoomCanvasHandle } from "@/components
 import { PropertyPanel } from "@/components/property-panel"
 import { AddRoomModal, AddFurnitureModal, CanvasContextMenu } from "@/components/modals"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { usePartySocket } from "@/hooks/use-party-socket"
 import { useCursorSync } from "@/hooks/use-cursor-sync"
 import { useLayoutSync } from "@/hooks/use-layout-sync"
 import { useCanvasInteraction } from "@/hooks/use-canvas-interaction"
@@ -53,16 +54,17 @@ export function EditorPage() {
     hingeSide: HingeSide
   } | null>(null)
 
+  const socket = usePartySocket(layout?.roomCode)
+
   const {
     cursors,
     clicks,
-    status: cursorStatus,
     myColor,
     clientCount,
     sendCursorMove,
     sendCursorLeave,
     sendClick,
-  } = useCursorSync(layout?.roomCode)
+  } = useCursorSync(socket)
 
   const {
     rooms,
@@ -83,7 +85,7 @@ export function EditorPage() {
     deleteDoor,
     moveDoorLocal,
     moveDoorSync,
-  } = useLayoutSync(layout?.roomCode)
+  } = useLayoutSync(socket)
 
   const {
     selectedId,
@@ -326,8 +328,38 @@ export function EditorPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-blueprint">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="flex h-full w-full flex-col bg-blueprint">
+        <div className="flex h-14 items-center gap-3 border-b bg-white/80 px-4">
+          <div className="skeleton-bar h-5 w-32 rounded" />
+          <div className="skeleton-bar h-4 w-20 rounded" />
+        </div>
+        <div className="flex flex-1">
+          <div className="flex w-64 flex-col gap-3 border-r bg-white/60 p-4">
+            <div className="skeleton-bar h-8 w-full rounded" />
+            <div className="skeleton-bar h-6 w-3/4 rounded" />
+            <div className="skeleton-bar h-6 w-1/2 rounded" />
+            <div className="skeleton-bar mt-4 h-8 w-full rounded" />
+            <div className="skeleton-bar h-6 w-2/3 rounded" />
+          </div>
+          <div className="relative flex-1 overflow-hidden">
+            <div className="loading-grid absolute inset-0" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-2 w-2 rounded-full bg-primary/60"
+                      style={{
+                        animation: `pulse 1s ease-in-out ${i * 0.15}s infinite`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -423,7 +455,7 @@ export function EditorPage() {
               ))}
             </div>
 
-            <ConnectionStatus status={cursorStatus} clientCount={clientCount} myColor={myColor} />
+            <ConnectionStatus status={socket.status} clientCount={clientCount} myColor={myColor} />
 
             {zoomPercent !== null && (
               <div

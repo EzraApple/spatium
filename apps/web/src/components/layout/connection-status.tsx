@@ -1,5 +1,5 @@
 type ConnectionStatusProps = {
-  status: "connecting" | "connected" | "disconnected"
+  status: "connecting" | "connected" | "reconnecting" | "disconnected"
   clientCount: number
   myColor: string | null
 }
@@ -16,8 +16,8 @@ export function ConnectionStatus({
           className={`h-2 w-2 rounded-full ${
             status === "connected"
               ? "bg-emerald-400"
-              : status === "connecting"
-                ? "bg-amber-400"
+              : status === "connecting" || status === "reconnecting"
+                ? "bg-amber-400 animate-pulse"
                 : "bg-red-400"
           }`}
         />
@@ -26,7 +26,9 @@ export function ConnectionStatus({
             ? "Connected"
             : status === "connecting"
               ? "Connecting..."
-              : "Disconnected"}
+              : status === "reconnecting"
+                ? "Reconnecting..."
+                : "Disconnected"}
         </span>
       </div>
       {status === "connected" && (
@@ -48,4 +50,3 @@ export function ConnectionStatus({
     </div>
   )
 }
-

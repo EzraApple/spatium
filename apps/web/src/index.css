@@ -121,3 +121,42 @@ body,
     linear-gradient(90deg, hsl(var(--blueprint-grid)) 1px, transparent 1px);
   background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
 }
+
+@keyframes grid-fade-in {
+  0% {
+    opacity: 0;
+    background-position: 0 -24px, -24px 0;
+  }
+  100% {
+    opacity: 1;
+    background-position: 0 0, 0 0;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.loading-grid {
+  background-image:
+    linear-gradient(hsl(var(--blueprint-grid)) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--blueprint-grid)) 1px, transparent 1px);
+  background-size: 24px 24px;
+  animation: grid-fade-in 0.8s ease-out forwards;
+}
+
+.skeleton-bar {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--blueprint-grid) / 0.3) 0%,
+    hsl(var(--blueprint-grid) / 0.6) 50%,
+    hsl(var(--blueprint-grid) / 0.3) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}

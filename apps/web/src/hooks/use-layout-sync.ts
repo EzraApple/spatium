@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react"
-import PartySocket from "partysocket"
-import { env } from "@/lib/env"
 import type {
   ClientMessage,
   ServerMessage,
@@ -21,43 +19,18 @@ import {
   getFurniture,
   getDoors,
 } from "@apartment-planner/shared"
+import { usePartySocket } from "./use-party-socket"
 
-type ConnectionStatus = "connecting" | "connected" | "disconnected"
-
-export function useLayoutSync(roomId?: string) {
+export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
   const [document, setDocument] = useState<LayoutDocument>({ version: 1, entities: [] })
-  const [status, setStatus] = useState<ConnectionStatus>("connecting")
-  const socketRef = useRef<PartySocket | null>(null)
-  const myIdRef = useRef<string | null>(null)
   const documentRef = useRef<LayoutDocument>(document)
   documentRef.current = document
 
+  const { status, send, subscribe } = socket
+
   useEffect(() => {
-    if (!roomId) {
-      setStatus("disconnected")
-      return
-    }
-
-    const socket = new PartySocket({
-      host: env.PARTYKIT_HOST,
-      room: roomId,
-    })
-
-    socketRef.current = socket
-
-    socket.addEventListener("open", () => {
-      setStatus("connected")
-    })
-
-    socket.addEventListener("close", () => {
-      setStatus("disconnected")
-    })
-
-    socket.addEventListener("message", (event) => {
-      const message = JSON.parse(event.data) as ServerMessage
-
+    const unsubscribe = subscribe((message: ServerMessage, _socketId: string) => {
       if (message.type === "layout-sync") {
-        myIdRef.current = socket.id
         setDocument(message.document)
       } else if (message.type === "room-added") {
         setDocument((prev) => ({
@@ -123,17 +96,14 @@ export function useLayoutSync(roomId?: string) {
       }
     })
 
-    return () => {
-      socket.close()
-      socketRef.current = null
-      setDocument({ version: 1, entities: [] })
-      myIdRef.current = null
-    }
-  }, [roomId])
+    return unsubscribe
+  }, [subscribe])
 
-  const send = useCallback((message: ClientMessage) => {
-    socketRef.current?.send(JSON.stringify(message))
-  }, [])
+  useEffect(() => {
+    if (status === "disconnected") {
+      setDocument({ version: 1, entities: [] })
+    }
+  }, [status])
 
   const addRoom = useCallback((room: RoomEntity) => {
     send({ type: "room-add", room })
@@ -271,7 +241,6 @@ export function useLayoutSync(roomId?: string) {
     rooms,
     furniture,
     doors,
-    status,
     addRoom,
     updateRoom,
     deleteRoom,
