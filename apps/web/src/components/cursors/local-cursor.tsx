@@ -159,3 +159,4 @@ export function LocalCursor({ color, x, y, cursorType = "pointer" }: LocalCursor
     </div>
   )
 }
+

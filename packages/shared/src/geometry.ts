@@ -1,4 +1,8 @@
-import type { Point, ShapeTemplate, FurnitureShapeTemplate, WallSegment, DoorEntity, HingeSide } from "./entities"
+import type { Point, ShapeTemplate, FurnitureShapeTemplate, WallSegment, DoorEntity, HingeSide, RoomEntity } from "./entities"
+
+export function getRoomVertices(room: RoomEntity): Point[] {
+  return shapeToVertices(room.shapeTemplate)
+}
 
 export function shapeToVertices(template: ShapeTemplate): Point[] {
   switch (template.type) {
@@ -286,6 +290,9 @@ export function findSnapPosition(
 ): Point | null {
   const movingWalls = getWallSegments(movingRoom.vertices, movingRoom.position)
 
+  let bestXSnap: { diff: number; position: Point } | null = null
+  let bestYSnap: { diff: number; position: Point } | null = null
+
   for (const other of otherRooms) {
     const otherWalls = getWallSegments(other.vertices, other.position)
 
@@ -296,10 +303,14 @@ export function findSnapPosition(
 
         if (movingIsVertical && otherIsVertical) {
           const xDiff = otherWall.start.x - movingWall.start.x
-          if (Math.abs(xDiff) <= snapThreshold) {
-            return {
-              x: movingRoom.position.x + xDiff,
-              y: movingRoom.position.y,
+          const absDiff = Math.abs(xDiff)
+          if (absDiff <= snapThreshold && (!bestXSnap || absDiff < bestXSnap.diff)) {
+            bestXSnap = {
+              diff: absDiff,
+              position: {
+                x: movingRoom.position.x + xDiff,
+                y: movingRoom.position.y,
+              },
             }
           }
         }
@@ -309,16 +320,30 @@ export function findSnapPosition(
 
         if (movingIsHorizontal && otherIsHorizontal) {
           const yDiff = otherWall.start.y - movingWall.start.y
-          if (Math.abs(yDiff) <= snapThreshold) {
-            return {
-              x: movingRoom.position.x,
-              y: movingRoom.position.y + yDiff,
+          const absDiff = Math.abs(yDiff)
+          if (absDiff <= snapThreshold && (!bestYSnap || absDiff < bestYSnap.diff)) {
+            bestYSnap = {
+              diff: absDiff,
+              position: {
+                x: movingRoom.position.x,
+                y: movingRoom.position.y + yDiff,
+              },
             }
           }
         }
       }
     }
   }
+
+  if (bestXSnap && bestYSnap) {
+    return {
+      x: bestXSnap.position.x,
+      y: bestYSnap.position.y,
+    }
+  }
+
+  if (bestXSnap) return bestXSnap.position
+  if (bestYSnap) return bestYSnap.position
 
   return null
 }
@@ -622,4 +647,5 @@ export function getDoorAbsolutePosition(
 
   return { walls, geometry }
 }
+
 

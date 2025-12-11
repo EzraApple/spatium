@@ -29,3 +29,4 @@ export function removeVisitedRoom(code: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
 }
 
+

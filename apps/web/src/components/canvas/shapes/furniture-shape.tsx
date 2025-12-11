@@ -9,6 +9,7 @@ type FurnitureShapeProps = {
   pixelScale: number
   isSelected: boolean
   isDragging: boolean
+  isRoomDragging: boolean
   isColliding: boolean
   onMouseDown: (e: React.MouseEvent) => void
 }
@@ -40,6 +41,7 @@ export function FurnitureShape({
   pixelScale,
   isSelected,
   isDragging,
+  isRoomDragging,
   isColliding,
   onMouseDown,
 }: FurnitureShapeProps) {
@@ -59,22 +61,24 @@ export function FurnitureShape({
 
   const strokeWidth = (isSelected ? 2 : 1) * pixelScale
 
-  const absoluteX = (roomPosition.x + furniture.position.x) * scale
-  const absoluteY = (roomPosition.y + furniture.position.y) * scale
+  const translateX = (roomPosition.x + furniture.position.x) * scale
+  const translateY = (roomPosition.y + furniture.position.y) * scale
+
+  const shouldTransition = isDragging || isRoomDragging
 
   if (furniture.shapeTemplate.type === "circle") {
     const radius = furniture.shapeTemplate.radius * scale
-    const cx = absoluteX + radius
-    const cy = absoluteY + radius
 
     return (
       <g
-        className={cn("transition-opacity cursor-pointer", isDragging && "opacity-80")}
+        transform={`translate(${translateX}, ${translateY})`}
+        style={shouldTransition ? { transition: "transform 60ms ease-out" } : undefined}
+        className={cn("cursor-pointer", isDragging && "opacity-80")}
         onMouseDown={onMouseDown}
       >
         <circle
-          cx={cx}
-          cy={cy}
+          cx={radius}
+          cy={radius}
           r={radius}
           fill={fillColor}
           stroke={strokeColor}
@@ -87,15 +91,17 @@ export function FurnitureShape({
 
   const vertices = furnitureShapeToVertices(furniture.shapeTemplate)
   const scaledVertices = vertices.map((v) => ({
-    x: absoluteX + v.x * scale,
-    y: absoluteY + v.y * scale,
+    x: v.x * scale,
+    y: v.y * scale,
   }))
 
   const pathData = scaledVertices.map((v, i) => `${i === 0 ? "M" : "L"} ${v.x} ${v.y}`).join(" ") + " Z"
 
   return (
     <g
-      className={cn("transition-opacity cursor-pointer", isDragging && "opacity-80")}
+      transform={`translate(${translateX}, ${translateY})`}
+      style={shouldTransition ? { transition: "transform 60ms ease-out" } : undefined}
+      className={cn("cursor-pointer", isDragging && "opacity-80")}
       onMouseDown={onMouseDown}
     >
       <path

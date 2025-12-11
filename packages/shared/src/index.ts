@@ -3,4 +3,5 @@ export * from "./constants"
 export * from "./entities"
 export * from "./geometry"
 export * from "./format"
+export * from "./entity-ops"
 

@@ -10,6 +10,17 @@ import type {
   LayoutDocument,
   Point,
 } from "@apartment-planner/shared"
+import {
+  addEntity,
+  deleteRoomWithContents,
+  deleteEntity,
+  moveRoom as moveRoomEntity,
+  moveFurniture as moveFurnitureEntity,
+  moveDoor as moveDoorEntity,
+  getRooms,
+  getFurniture,
+  getDoors,
+} from "@apartment-planner/shared"
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected"
 
@@ -18,6 +29,8 @@ export function useLayoutSync(roomId?: string) {
   const [status, setStatus] = useState<ConnectionStatus>("connecting")
   const socketRef = useRef<PartySocket | null>(null)
   const myIdRef = useRef<string | null>(null)
+  const documentRef = useRef<LayoutDocument>(document)
+  documentRef.current = document
 
   useEffect(() => {
     if (!roomId) {
@@ -49,7 +62,7 @@ export function useLayoutSync(roomId?: string) {
       } else if (message.type === "room-added") {
         setDocument((prev) => ({
           ...prev,
-          entities: [...prev.entities, message.room],
+          entities: addEntity(prev.entities, message.room),
         }))
       } else if (message.type === "room-updated") {
         setDocument((prev) => ({
@@ -61,26 +74,17 @@ export function useLayoutSync(roomId?: string) {
       } else if (message.type === "room-deleted") {
         setDocument((prev) => ({
           ...prev,
-          entities: prev.entities.filter((e) => {
-            if (e.type === "room" && e.id === message.roomId) return false
-            if (e.type === "furniture" && e.roomId === message.roomId) return false
-            if (e.type === "door" && e.roomId === message.roomId) return false
-            return true
-          }),
+          entities: deleteRoomWithContents(prev.entities, message.roomId),
         }))
       } else if (message.type === "room-moved") {
         setDocument((prev) => ({
           ...prev,
-          entities: prev.entities.map((e) =>
-            e.type === "room" && e.id === message.roomId
-              ? { ...e, position: message.position }
-              : e
-          ),
+          entities: moveRoomEntity(prev.entities, message.roomId, message.position),
         }))
       } else if (message.type === "furniture-added") {
         setDocument((prev) => ({
           ...prev,
-          entities: [...prev.entities, message.furniture],
+          entities: addEntity(prev.entities, message.furniture),
         }))
       } else if (message.type === "furniture-updated") {
         setDocument((prev) => ({
@@ -92,23 +96,17 @@ export function useLayoutSync(roomId?: string) {
       } else if (message.type === "furniture-deleted") {
         setDocument((prev) => ({
           ...prev,
-          entities: prev.entities.filter(
-            (e) => !(e.type === "furniture" && e.id === message.furnitureId)
-          ),
+          entities: deleteEntity(prev.entities, "furniture", message.furnitureId),
         }))
       } else if (message.type === "furniture-moved") {
         setDocument((prev) => ({
           ...prev,
-          entities: prev.entities.map((e) =>
-            e.type === "furniture" && e.id === message.furnitureId
-              ? { ...e, position: message.position, roomId: message.roomId }
-              : e
-          ),
+          entities: moveFurnitureEntity(prev.entities, message.furnitureId, message.position, message.roomId),
         }))
       } else if (message.type === "door-added") {
         setDocument((prev) => ({
           ...prev,
-          entities: [...prev.entities, message.door],
+          entities: addEntity(prev.entities, message.door),
         }))
       } else if (message.type === "door-updated") {
         setDocument((prev) => ({
@@ -120,9 +118,7 @@ export function useLayoutSync(roomId?: string) {
       } else if (message.type === "door-deleted") {
         setDocument((prev) => ({
           ...prev,
-          entities: prev.entities.filter(
-            (e) => !(e.type === "door" && e.id === message.doorId)
-          ),
+          entities: deleteEntity(prev.entities, "door", message.doorId),
         }))
       }
     })
@@ -135,50 +131,46 @@ export function useLayoutSync(roomId?: string) {
     }
   }, [roomId])
 
-  const addRoom = useCallback((room: RoomEntity) => {
-    const message: ClientMessage = { type: "room-add", room }
+  const send = useCallback((message: ClientMessage) => {
     socketRef.current?.send(JSON.stringify(message))
-    setDocument((prev) => ({
-      ...prev,
-      entities: [...prev.entities, room],
-    }))
   }, [])
 
+  const addRoom = useCallback((room: RoomEntity) => {
+    send({ type: "room-add", room })
+    setDocument((prev) => ({
+      ...prev,
+      entities: addEntity(prev.entities, room),
+    }))
+  }, [send])
+
   const updateRoom = useCallback((room: RoomEntity) => {
-    const message: ClientMessage = { type: "room-update", room }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "room-update", room })
     setDocument((prev) => ({
       ...prev,
       entities: prev.entities.map((e) =>
         e.type === "room" && e.id === room.id ? room : e
       ),
     }))
-  }, [])
+  }, [send])
 
   const deleteRoom = useCallback((roomId: string) => {
-    const message: ClientMessage = { type: "room-delete", roomId }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "room-delete", roomId })
     setDocument((prev) => ({
       ...prev,
-      entities: prev.entities.filter(
-        (e) => !(e.type === "room" && e.id === roomId)
-      ),
+      entities: deleteRoomWithContents(prev.entities, roomId),
     }))
-  }, [])
+  }, [send])
 
   const moveRoomLocal = useCallback((roomId: string, position: Point) => {
     setDocument((prev) => ({
       ...prev,
-      entities: prev.entities.map((e) =>
-        e.type === "room" && e.id === roomId ? { ...e, position } : e
-      ),
+      entities: moveRoomEntity(prev.entities, roomId, position),
     }))
   }, [])
 
   const moveRoomSync = useCallback((roomId: string, position: Point) => {
-    const message: ClientMessage = { type: "room-move", roomId, position }
-    socketRef.current?.send(JSON.stringify(message))
-  }, [])
+    send({ type: "room-move", roomId, position })
+  }, [send])
 
   const moveRoom = useCallback((roomId: string, position: Point) => {
     moveRoomLocal(roomId, position)
@@ -186,86 +178,85 @@ export function useLayoutSync(roomId?: string) {
   }, [moveRoomLocal, moveRoomSync])
 
   const addFurniture = useCallback((furniture: FurnitureEntity) => {
-    const message: ClientMessage = { type: "furniture-add", furniture }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "furniture-add", furniture })
     setDocument((prev) => ({
       ...prev,
-      entities: [...prev.entities, furniture],
+      entities: addEntity(prev.entities, furniture),
     }))
-  }, [])
+  }, [send])
 
   const updateFurniture = useCallback((furniture: FurnitureEntity) => {
-    const message: ClientMessage = { type: "furniture-update", furniture }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "furniture-update", furniture })
     setDocument((prev) => ({
       ...prev,
       entities: prev.entities.map((e) =>
         e.type === "furniture" && e.id === furniture.id ? furniture : e
       ),
     }))
-  }, [])
+  }, [send])
 
   const deleteFurniture = useCallback((furnitureId: string) => {
-    const message: ClientMessage = { type: "furniture-delete", furnitureId }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "furniture-delete", furnitureId })
     setDocument((prev) => ({
       ...prev,
-      entities: prev.entities.filter(
-        (e) => !(e.type === "furniture" && e.id === furnitureId)
-      ),
+      entities: deleteEntity(prev.entities, "furniture", furnitureId),
     }))
-  }, [])
+  }, [send])
 
   const moveFurnitureLocal = useCallback((furnitureId: string, position: Point, roomId: string) => {
     setDocument((prev) => ({
       ...prev,
-      entities: prev.entities.map((e) =>
-        e.type === "furniture" && e.id === furnitureId
-          ? { ...e, position, roomId }
-          : e
-      ),
+      entities: moveFurnitureEntity(prev.entities, furnitureId, position, roomId),
     }))
   }, [])
 
   const moveFurnitureSync = useCallback((furnitureId: string, position: Point, roomId: string) => {
-    const message: ClientMessage = { type: "furniture-move", furnitureId, position, roomId }
-    socketRef.current?.send(JSON.stringify(message))
-  }, [])
+    send({ type: "furniture-move", furnitureId, position, roomId })
+  }, [send])
 
   const addDoor = useCallback((door: DoorEntity) => {
-    const message: ClientMessage = { type: "door-add", door }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "door-add", door })
     setDocument((prev) => ({
       ...prev,
-      entities: [...prev.entities, door],
+      entities: addEntity(prev.entities, door),
     }))
-  }, [])
+  }, [send])
 
   const updateDoor = useCallback((door: DoorEntity) => {
-    const message: ClientMessage = { type: "door-update", door }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "door-update", door })
     setDocument((prev) => ({
       ...prev,
       entities: prev.entities.map((e) =>
         e.type === "door" && e.id === door.id ? door : e
       ),
     }))
-  }, [])
+  }, [send])
 
   const deleteDoor = useCallback((doorId: string) => {
-    const message: ClientMessage = { type: "door-delete", doorId }
-    socketRef.current?.send(JSON.stringify(message))
+    send({ type: "door-delete", doorId })
     setDocument((prev) => ({
       ...prev,
-      entities: prev.entities.filter(
-        (e) => !(e.type === "door" && e.id === doorId)
-      ),
+      entities: deleteEntity(prev.entities, "door", doorId),
+    }))
+  }, [send])
+
+  const moveDoorLocal = useCallback((doorId: string, wallIndex: number, positionOnWall: number) => {
+    setDocument((prev) => ({
+      ...prev,
+      entities: moveDoorEntity(prev.entities, doorId, wallIndex, positionOnWall),
     }))
   }, [])
 
-  const rooms = document.entities.filter((e): e is RoomEntity => e.type === "room")
-  const furniture = document.entities.filter((e): e is FurnitureEntity => e.type === "furniture")
-  const doors = document.entities.filter((e): e is DoorEntity => e.type === "door")
+  const moveDoorSync = useCallback((doorId: string, wallIndex: number, positionOnWall: number) => {
+    const currentDoors = getDoors(documentRef.current)
+    const door = currentDoors.find((d) => d.id === doorId)
+    if (!door) return
+    send({ type: "door-update", door: { ...door, wallIndex, positionOnWall } })
+  }, [send])
+
+  const rooms = getRooms(document)
+  const furniture = getFurniture(document)
+  const doors = getDoors(document)
 
   const getFurnitureByRoom = useCallback((roomId: string) => {
     return furniture.filter((f) => f.roomId === roomId)
@@ -296,7 +287,8 @@ export function useLayoutSync(roomId?: string) {
     addDoor,
     updateDoor,
     deleteDoor,
+    moveDoorLocal,
+    moveDoorSync,
     getDoorsByRoom,
   }
 }
-

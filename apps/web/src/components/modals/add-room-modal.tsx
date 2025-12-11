@@ -17,7 +17,7 @@ import {
   RectangleRoomIcon,
   LShapedRoomIcon,
   BeveledRoomIcon,
-} from "@/components/room-shape-icons"
+} from "@/components/sidebar/room-shape-icons"
 
 type ShapeType = "rectangle" | "l-shaped" | "beveled"
 

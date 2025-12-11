@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 import type { FurnitureType, FurnitureShapeTemplate, Corner } from "@apartment-planner/shared"
 import { formatInchesForEditor, parseInchesFromEditor, inchesToEighths } from "@apartment-planner/shared"
 import { Circle, Square, RectangleHorizontal, Refrigerator } from "lucide-react"
-import { LShapedRoomIcon } from "@/components/room-shape-icons"
+import { LShapedRoomIcon } from "@/components/sidebar/room-shape-icons"
 
 type FurnitureOption = {
   type: FurnitureType
@@ -47,12 +47,17 @@ const FURNITURE_OPTIONS: FurnitureOption[] = [
 const DEFAULT_TABLE_SIZE = inchesToEighths(36)
 const DEFAULT_DESK_WIDTH = inchesToEighths(60)
 const DEFAULT_DESK_HEIGHT = inchesToEighths(30)
-const DEFAULT_CUT = inchesToEighths(24)
 const DEFAULT_COUCH_WIDTH = inchesToEighths(72)
 const DEFAULT_COUCH_HEIGHT = inchesToEighths(36)
-const DEFAULT_L_COUCH_SIZE = inchesToEighths(84)
-const DEFAULT_L_COUCH_CUT = inchesToEighths(48)
 const DEFAULT_FRIDGE_SIZE = inchesToEighths(36)
+
+const DEFAULT_L_DESK_LENGTH = inchesToEighths(60)
+const DEFAULT_L_DESK_WIDTH = inchesToEighths(48)
+const DEFAULT_L_DESK_DEPTH = inchesToEighths(24)
+
+const DEFAULT_L_COUCH_LENGTH = inchesToEighths(84)
+const DEFAULT_L_COUCH_WIDTH = inchesToEighths(84)
+const DEFAULT_L_COUCH_DEPTH = inchesToEighths(36)
 
 type AddFurnitureModalProps = {
   open: boolean
@@ -67,9 +72,11 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
   const [width, setWidth] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE))
   const [height, setHeight] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE))
   const [radius, setRadius] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
-  const [cutWidth, setCutWidth] = useState(formatInchesForEditor(DEFAULT_CUT))
-  const [cutHeight, setCutHeight] = useState(formatInchesForEditor(DEFAULT_CUT))
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
+
+  const [lLength, setLLength] = useState(formatInchesForEditor(DEFAULT_L_DESK_LENGTH))
+  const [lWidth, setLWidth] = useState(formatInchesForEditor(DEFAULT_L_DESK_WIDTH))
+  const [lDepth, setLDepth] = useState(formatInchesForEditor(DEFAULT_L_DESK_DEPTH))
 
   useEffect(() => {
     const option = FURNITURE_OPTIONS.find((o) => o.type === selectedType)
@@ -81,14 +88,19 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
         setHeight(formatInchesForEditor(DEFAULT_TABLE_SIZE))
         setRadius(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
       } else if (option.category === "desk") {
-        setWidth(formatInchesForEditor(DEFAULT_DESK_WIDTH))
-        setHeight(formatInchesForEditor(DEFAULT_DESK_HEIGHT))
+        if (selectedType === "l-shaped-desk") {
+          setLLength(formatInchesForEditor(DEFAULT_L_DESK_LENGTH))
+          setLWidth(formatInchesForEditor(DEFAULT_L_DESK_WIDTH))
+          setLDepth(formatInchesForEditor(DEFAULT_L_DESK_DEPTH))
+        } else {
+          setWidth(formatInchesForEditor(DEFAULT_DESK_WIDTH))
+          setHeight(formatInchesForEditor(DEFAULT_DESK_HEIGHT))
+        }
       } else if (option.category === "seating") {
         if (selectedType === "l-shaped-couch") {
-          setWidth(formatInchesForEditor(DEFAULT_L_COUCH_SIZE))
-          setHeight(formatInchesForEditor(DEFAULT_L_COUCH_SIZE))
-          setCutWidth(formatInchesForEditor(DEFAULT_L_COUCH_CUT))
-          setCutHeight(formatInchesForEditor(DEFAULT_L_COUCH_CUT))
+          setLLength(formatInchesForEditor(DEFAULT_L_COUCH_LENGTH))
+          setLWidth(formatInchesForEditor(DEFAULT_L_COUCH_WIDTH))
+          setLDepth(formatInchesForEditor(DEFAULT_L_COUCH_DEPTH))
         } else {
           setWidth(formatInchesForEditor(DEFAULT_COUCH_WIDTH))
           setHeight(formatInchesForEditor(DEFAULT_COUCH_HEIGHT))
@@ -106,9 +118,10 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
     setWidth(formatInchesForEditor(DEFAULT_TABLE_SIZE))
     setHeight(formatInchesForEditor(DEFAULT_TABLE_SIZE))
     setRadius(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
-    setCutWidth(formatInchesForEditor(DEFAULT_CUT))
-    setCutHeight(formatInchesForEditor(DEFAULT_CUT))
     setCutCorner("top-right")
+    setLLength(formatInchesForEditor(DEFAULT_L_DESK_LENGTH))
+    setLWidth(formatInchesForEditor(DEFAULT_L_DESK_WIDTH))
+    setLDepth(formatInchesForEditor(DEFAULT_L_DESK_DEPTH))
   }
 
   const handleAdd = () => {
@@ -137,16 +150,20 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
           height: parseInchesFromEditor(height) ?? DEFAULT_DESK_HEIGHT,
         }
         break
-      case "l-shaped-desk":
+      case "l-shaped-desk": {
+        const length = parseInchesFromEditor(lLength) ?? DEFAULT_L_DESK_LENGTH
+        const lw = parseInchesFromEditor(lWidth) ?? DEFAULT_L_DESK_WIDTH
+        const depth = parseInchesFromEditor(lDepth) ?? DEFAULT_L_DESK_DEPTH
         template = {
           type: "l-shaped",
-          width: parseInchesFromEditor(width) ?? DEFAULT_DESK_WIDTH,
-          height: parseInchesFromEditor(height) ?? DEFAULT_DESK_HEIGHT,
-          cutWidth: parseInchesFromEditor(cutWidth) ?? DEFAULT_CUT,
-          cutHeight: parseInchesFromEditor(cutHeight) ?? DEFAULT_CUT,
+          width: length,
+          height: lw,
+          cutWidth: length - depth,
+          cutHeight: lw - depth,
           cutCorner,
         }
         break
+      }
       case "couch":
         template = {
           type: "rectangle",
@@ -154,16 +171,20 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
           height: parseInchesFromEditor(height) ?? DEFAULT_COUCH_HEIGHT,
         }
         break
-      case "l-shaped-couch":
+      case "l-shaped-couch": {
+        const length = parseInchesFromEditor(lLength) ?? DEFAULT_L_COUCH_LENGTH
+        const lw = parseInchesFromEditor(lWidth) ?? DEFAULT_L_COUCH_WIDTH
+        const depth = parseInchesFromEditor(lDepth) ?? DEFAULT_L_COUCH_DEPTH
         template = {
           type: "l-shaped",
-          width: parseInchesFromEditor(width) ?? DEFAULT_L_COUCH_SIZE,
-          height: parseInchesFromEditor(height) ?? DEFAULT_L_COUCH_SIZE,
-          cutWidth: parseInchesFromEditor(cutWidth) ?? DEFAULT_L_COUCH_CUT,
-          cutHeight: parseInchesFromEditor(cutHeight) ?? DEFAULT_L_COUCH_CUT,
+          width: length,
+          height: lw,
+          cutWidth: length - depth,
+          cutHeight: lw - depth,
           cutCorner,
         }
         break
+      }
       case "fridge":
         template = {
           type: "rectangle",
@@ -221,7 +242,7 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
           </div>
 
           <div className="space-y-4">
-            {isCircle ? (
+            {isCircle && (
               <div className="space-y-2">
                 <Label htmlFor="furniture-radius">Radius (in)</Label>
                 <Input
@@ -231,7 +252,9 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
                   placeholder="18"
                 />
               </div>
-            ) : (
+            )}
+
+            {!isCircle && !isLShaped && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="furniture-width">Width (in)</Label>
@@ -256,28 +279,37 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
 
             {isLShaped && (
               <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="furniture-cut-width">Cut Width (in)</Label>
+                    <Label htmlFor="furniture-l-length">Length (in)</Label>
                     <Input
-                      id="furniture-cut-width"
-                      value={cutWidth}
-                      onChange={(e) => setCutWidth(e.target.value)}
-                      placeholder="24"
+                      id="furniture-l-length"
+                      value={lLength}
+                      onChange={(e) => setLLength(e.target.value)}
+                      placeholder="60"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="furniture-cut-height">Cut Height (in)</Label>
+                    <Label htmlFor="furniture-l-width">Width (in)</Label>
                     <Input
-                      id="furniture-cut-height"
-                      value={cutHeight}
-                      onChange={(e) => setCutHeight(e.target.value)}
+                      id="furniture-l-width"
+                      value={lWidth}
+                      onChange={(e) => setLWidth(e.target.value)}
+                      placeholder="48"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="furniture-l-depth">Depth (in)</Label>
+                    <Input
+                      id="furniture-l-depth"
+                      value={lDepth}
+                      onChange={(e) => setLDepth(e.target.value)}
                       placeholder="24"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Cut Corner</Label>
+                  <Label>Orientation</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {(["top-left", "top-right", "bottom-left", "bottom-right"] as Corner[]).map(
                       (corner) => (

@@ -1,41 +1,40 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { v4 as uuid } from "uuid"
-import { LayoutHeader } from "@/components/layout-header"
-import { CursorCanvas } from "@/components/cursor-canvas"
-import { LocalCursor } from "@/components/local-cursor"
-import { ClickRipple } from "@/components/click-ripple"
-import { ConnectionStatus } from "@/components/connection-status"
-import { RoomSidebar } from "@/components/room-sidebar"
-import { RoomCanvas, type CursorMode } from "@/components/room-canvas"
+import { LayoutHeader, ConnectionStatus } from "@/components/layout"
+import { CursorCanvas, LocalCursor, ClickRipple } from "@/components/cursors"
+import { RoomSidebar } from "@/components/sidebar"
+import { RoomCanvas, type CursorMode, type RoomCanvasHandle } from "@/components/canvas"
 import { PropertyPanel } from "@/components/property-panel"
-import { AddRoomModal } from "@/components/add-room-modal"
-import { AddFurnitureModal } from "@/components/add-furniture-modal"
-import { CanvasContextMenu } from "@/components/canvas-context-menu"
+import { AddRoomModal, AddFurnitureModal, CanvasContextMenu } from "@/components/modals"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { useCursorSync } from "@/hooks/use-cursor-sync"
 import { useLayoutSync } from "@/hooks/use-layout-sync"
 import { useCanvasInteraction } from "@/hooks/use-canvas-interaction"
+import { useEditorActions } from "@/hooks/use-editor-actions"
 import { getLayout, updateLayoutName } from "@/lib/api"
 import { addVisitedRoom } from "@/lib/visited-rooms"
 import type {
   Layout,
   RoomEntity,
-  FurnitureEntity,
-  DoorEntity,
   ShapeTemplate,
   FurnitureType,
   FurnitureShapeTemplate,
   HingeSide,
+  Point,
 } from "@apartment-planner/shared"
-import { shapeToVertices, feetToEighths, furnitureShapeToVertices, inchesToEighths } from "@apartment-planner/shared"
+import { getRoomVertices } from "@apartment-planner/shared"
 
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const roomCanvasRef = useRef<RoomCanvasHandle>(null)
   const [layout, setLayout] = useState<Layout | null>(null)
   const [loading, setLoading] = useState(true)
   const [localCursor, setLocalCursor] = useState({ x: 0, y: 0 })
+  const [roomSpawnPosition, setRoomSpawnPosition] = useState<Point | null>(null)
+  const [zoomPercent, setZoomPercent] = useState<number | null>(null)
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false)
+  const zoomHideTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
   const [addRoomModalOpen, setAddRoomModalOpen] = useState(false)
   const [addFurnitureModalOpen, setAddFurnitureModalOpen] = useState(false)
@@ -82,6 +81,8 @@ export function EditorPage() {
     addDoor,
     updateDoor,
     deleteDoor,
+    moveDoorLocal,
+    moveDoorSync,
   } = useLayoutSync(layout?.roomCode)
 
   const {
@@ -90,6 +91,9 @@ export function EditorPage() {
     isDragging,
     draggingRoomId,
     draggingFurnitureId,
+    draggingDoorId,
+    draggingFurnitureOriginalRoomId,
+    draggingFurniturePendingRoomId,
     getSelectedRoom,
     getSelectedFurniture,
     checkRoomCollision,
@@ -102,10 +106,38 @@ export function EditorPage() {
   } = useCanvasInteraction({
     rooms,
     furniture,
+    doors,
     onRoomMove: moveRoomLocal,
     onRoomMoveThrottled: moveRoomSync,
     onFurnitureMove: moveFurnitureLocal,
     onFurnitureMoveThrottled: moveFurnitureSync,
+    onDoorMove: moveDoorLocal,
+    onDoorMoveThrottled: moveDoorSync,
+  })
+
+  const {
+    createRoom,
+    createFurniture,
+    createDoor,
+    updateRoomWithDoorResnap,
+    deleteRoom: handleDeleteRoom,
+    deleteFurniture: handleDeleteFurniture,
+    deleteDoor: handleDeleteDoor,
+    getDefaultDoorPlacement,
+  } = useEditorActions({
+    rooms,
+    doors,
+    addRoom,
+    updateRoom,
+    deleteRoom,
+    addFurniture,
+    updateFurniture,
+    deleteFurniture,
+    addDoor,
+    updateDoor,
+    deleteDoor,
+    select,
+    deselect,
   })
 
   useEffect(() => {
@@ -114,15 +146,21 @@ export function EditorPage() {
     if (selectedType === "furniture") {
       const f = furniture.find((item) => item.id === selectedId)
       if (f) {
-        setExpandedRoomIds((prev) => new Set([...prev, f.roomId]))
+        setExpandedRoomIds((prev) => {
+          if (prev.has(f.roomId)) return prev
+          return new Set([...prev, f.roomId])
+        })
       }
     } else if (selectedType === "door") {
       const d = doors.find((item) => item.id === selectedId)
       if (d) {
-        setExpandedRoomIds((prev) => new Set([...prev, d.roomId]))
+        setExpandedRoomIds((prev) => {
+          if (prev.has(d.roomId)) return prev
+          return new Set([...prev, d.roomId])
+        })
       }
     }
-  }, [selectedId, selectedType, furniture, doors])
+  }, [selectedId, selectedType])
 
   useEffect(() => {
     if (!id) {
@@ -139,14 +177,25 @@ export function EditorPage() {
       .finally(() => setLoading(false))
   }, [id, navigate])
 
-  const handleNameChange = useCallback(async (name: string) => {
-    if (!id) return
-    try {
-      const updated = await updateLayoutName(id, name)
-      setLayout(updated)
-    } catch {
+  useEffect(() => {
+    return () => {
+      if (zoomHideTimeoutRef.current) {
+        window.clearTimeout(zoomHideTimeoutRef.current)
+      }
     }
-  }, [id])
+  }, [])
+
+  const handleNameChange = useCallback(
+    async (name: string) => {
+      if (!id) return
+      try {
+        const updated = await updateLayoutName(id, name)
+        setLayout(updated)
+      } catch {
+      }
+    },
+    [id]
+  )
 
   const handleMouseMove = (e: React.MouseEvent) => {
     setLocalCursor({ x: e.clientX, y: e.clientY })
@@ -158,23 +207,33 @@ export function EditorPage() {
     sendCursorLeave()
   }
 
+  const handleZoomChange = useCallback((percent: number) => {
+    setZoomPercent(percent)
+    setShowZoomIndicator(true)
+    if (zoomHideTimeoutRef.current) {
+      window.clearTimeout(zoomHideTimeoutRef.current)
+    }
+    zoomHideTimeoutRef.current = window.setTimeout(() => {
+      setShowZoomIndicator(false)
+    }, 3000)
+  }, [])
+
   const handleClick = (e: React.MouseEvent) => {
     sendClick(e.clientX, e.clientY)
   }
 
   const handleAddRoom = (name: string, template: ShapeTemplate) => {
-    const vertices = shapeToVertices(template)
-    const room: RoomEntity = {
-      type: "room",
-      id: uuid(),
-      name,
-      position: { x: feetToEighths(5), y: feetToEighths(5) },
-      vertices,
-      shapeTemplate: template,
+    const spawnPos = roomSpawnPosition ?? roomCanvasRef.current?.getViewportCenter() ?? { x: 0, y: 0 }
+    const room = createRoom(name, template, spawnPos)
+    const vertices = getRoomVertices(room)
+    const roomCenterX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length
+    const roomCenterY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length
+    const worldCenter = {
+      x: room.position.x + roomCenterX,
+      y: room.position.y + roomCenterY,
     }
-    addRoom(room)
-    select(room.id, "room")
-    handleMouseDown(room.id, "room", localCursor)
+    handleMouseDown(room.id, "room", localCursor, worldCenter)
+    setRoomSpawnPosition(null)
   }
 
   const handleAddFurniture = (
@@ -183,39 +242,10 @@ export function EditorPage() {
     furnitureType: FurnitureType,
     template: FurnitureShapeTemplate
   ) => {
-    const room = rooms.find((r) => r.id === roomId)
-    if (!room) return
-
-    let centerX = 0
-    let centerY = 0
-    if (template.type === "circle") {
-      centerX = template.radius
-      centerY = template.radius
-    } else {
-      const vertices = furnitureShapeToVertices(template)
-      centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length
-      centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length
+    const created = createFurniture(roomId, name, furnitureType, template)
+    if (created) {
+      setExpandedRoomIds((prev) => new Set([...prev, roomId]))
     }
-
-    const roomCenterX = room.vertices.reduce((sum, v) => sum + v.x, 0) / room.vertices.length
-    const roomCenterY = room.vertices.reduce((sum, v) => sum + v.y, 0) / room.vertices.length
-
-    const f: FurnitureEntity = {
-      type: "furniture",
-      id: uuid(),
-      name,
-      furnitureType,
-      roomId,
-      position: {
-        x: roomCenterX - centerX,
-        y: roomCenterY - centerY,
-      },
-      shapeTemplate: template,
-    }
-
-    addFurniture(f)
-    setExpandedRoomIds((prev) => new Set([...prev, roomId]))
-    select(f.id, "furniture")
   }
 
   const handleToggleExpanded = (roomId: string) => {
@@ -259,40 +289,23 @@ export function EditorPage() {
   }
 
   const handleStartDoorPlacement = (roomId: string) => {
+    const defaults = getDefaultDoorPlacement()
     setPlacingDoor({
       roomId,
-      doorWidth: inchesToEighths(36),
-      hingeSide: "left",
+      doorWidth: defaults.doorWidth,
+      hingeSide: defaults.hingeSide,
     })
     setExpandedRoomIds((prev) => new Set([...prev, roomId]))
   }
 
   const handleDoorPlace = (roomId: string, wallIndex: number, positionOnWall: number) => {
     if (!placingDoor) return
-
-    const door: DoorEntity = {
-      type: "door",
-      id: crypto.randomUUID(),
-      name: "Door",
-      roomId,
-      wallIndex,
-      positionOnWall,
-      width: placingDoor.doorWidth,
-      hingeSide: placingDoor.hingeSide,
-    }
-
-    addDoor(door)
-    select(door.id, "door")
+    createDoor(roomId, wallIndex, positionOnWall, placingDoor.doorWidth, placingDoor.hingeSide)
     setPlacingDoor(null)
   }
 
   const handleDoorPlaceCancel = () => {
     setPlacingDoor(null)
-  }
-
-  const handleDeleteDoor = (doorId: string) => {
-    deleteDoor(doorId)
-    deselect()
   }
 
   const getSelectedDoor = useCallback(() => {
@@ -311,16 +324,6 @@ export function EditorPage() {
     setContextMenu({ x, y, targetRoom })
   }
 
-  const handleDeleteRoom = (roomId: string) => {
-    deleteRoom(roomId)
-    deselect()
-  }
-
-  const handleDeleteFurniture = (furnitureId: string) => {
-    deleteFurniture(furnitureId)
-    deselect()
-  }
-
   if (loading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-blueprint">
@@ -336,6 +339,8 @@ export function EditorPage() {
   const selectedRoom = getSelectedRoom()
   const selectedFurniture = getSelectedFurniture()
   const selectedDoor = getSelectedDoor()
+  const isPropertyPanelOpen = Boolean(selectedRoom || selectedFurniture || selectedDoor)
+  const zoomIndicatorRight = isPropertyPanelOpen ? "17rem" : "0.75rem"
 
   return (
     <div
@@ -369,6 +374,7 @@ export function EditorPage() {
             onMouseLeave={() => setIsOverCanvas(false)}
           >
             <RoomCanvas
+              ref={roomCanvasRef}
               roomCode={layout.roomCode}
               rooms={rooms}
               furniture={furniture}
@@ -377,6 +383,9 @@ export function EditorPage() {
               selectedType={selectedType}
               draggingRoomId={draggingRoomId}
               draggingFurnitureId={draggingFurnitureId}
+              draggingDoorId={draggingDoorId}
+              draggingFurnitureOriginalRoomId={draggingFurnitureOriginalRoomId}
+              draggingFurniturePendingRoomId={draggingFurniturePendingRoomId}
               placingDoor={placingDoor}
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
@@ -388,6 +397,7 @@ export function EditorPage() {
               onDoorPlaceCancel={handleDoorPlaceCancel}
               checkRoomCollision={checkRoomCollision}
               checkFurnitureCollision={checkFurnitureCollision}
+              onZoomChange={handleZoomChange}
             />
 
             {contextMenu && (
@@ -395,7 +405,11 @@ export function EditorPage() {
                 x={contextMenu.x}
                 y={contextMenu.y}
                 targetRoom={contextMenu.targetRoom}
-                onAddRoom={() => setAddRoomModalOpen(true)}
+                onAddRoom={() => {
+                  const worldPos = roomCanvasRef.current?.screenToWorld(contextMenu.x, contextMenu.y)
+                  if (worldPos) setRoomSpawnPosition(worldPos)
+                  setAddRoomModalOpen(true)
+                }}
                 onAddFurniture={handleOpenAddFurnitureModal}
                 onAddDoor={handleStartDoorPlacement}
                 onClose={() => setContextMenu(null)}
@@ -410,13 +424,26 @@ export function EditorPage() {
             </div>
 
             <ConnectionStatus status={cursorStatus} clientCount={clientCount} myColor={myColor} />
+
+            {zoomPercent !== null && (
+              <div
+                className={`pointer-events-none absolute top-3 z-20 transition-opacity duration-300 ${
+                  showZoomIndicator ? "opacity-100" : "opacity-0"
+                }`}
+                style={{ right: zoomIndicatorRight }}
+              >
+                <div className="rounded-md border bg-white/95 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                  {zoomPercent}%
+                </div>
+              </div>
+            )}
           </div>
 
           <PropertyPanel
             selectedRoom={selectedRoom}
             selectedFurniture={selectedFurniture}
             selectedDoor={selectedDoor}
-            onRoomUpdate={updateRoom}
+            onRoomUpdate={updateRoomWithDoorResnap}
             onFurnitureUpdate={updateFurniture}
             onDoorUpdate={updateDoor}
             onRoomDelete={handleDeleteRoom}
@@ -428,11 +455,7 @@ export function EditorPage() {
 
       <LocalCursor color={myColor} x={localCursor.x} y={localCursor.y} cursorType={isOverCanvas ? cursorMode : "pointer"} />
 
-      <AddRoomModal
-        open={addRoomModalOpen}
-        onOpenChange={setAddRoomModalOpen}
-        onAdd={handleAddRoom}
-      />
+      <AddRoomModal open={addRoomModalOpen} onOpenChange={setAddRoomModalOpen} onAdd={handleAddRoom} />
 
       <AddFurnitureModal
         open={addFurnitureModalOpen}

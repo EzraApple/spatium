@@ -17,7 +17,7 @@ import {
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
 import { Input } from "@/components/ui/input"
-import { getRoomShapeIcon } from "@/components/room-shape-icons"
+import { getRoomShapeIcon } from "./room-shape-icons"
 import { cn } from "@/lib/utils"
 
 type RoomSidebarProps = {
@@ -255,3 +255,4 @@ export function RoomSidebar({
     </Sidebar>
   )
 }
+

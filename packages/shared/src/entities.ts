@@ -35,7 +35,6 @@ export type RoomEntity = {
   id: string
   name: string
   position: Point
-  vertices: Point[]
   shapeTemplate: ShapeTemplate
 }
 

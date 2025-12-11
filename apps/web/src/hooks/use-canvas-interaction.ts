@@ -1,56 +1,67 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import type { RoomEntity, FurnitureEntity, Point } from "@apartment-planner/shared"
+import type { RoomEntity, FurnitureEntity, DoorEntity, Point } from "@apartment-planner/shared"
+import { getWallSegments, findClosestWallPoint, getRoomVertices } from "@apartment-planner/shared"
 import {
-  getAbsoluteVertices,
-  polygonsIntersect,
-  findSnapPosition,
-  pointInPolygon,
-  furnitureShapeToVertices,
-  circlesIntersect,
-  circlePolygonIntersect,
-} from "@apartment-planner/shared"
+  checkRoomCollision as checkRoomCollisionLib,
+  checkFurnitureCollision as checkFurnitureCollisionLib,
+  findRoomAtPoint,
+} from "@/components/canvas/lib/collision"
+import { calculateSnappedPosition } from "@/components/canvas/lib/snapping"
 
 type SelectionType = "room" | "furniture" | "door" | null
 
+type DoorDragOriginal = { wallIndex: number; positionOnWall: number }
+
 type InteractionMode =
   | { type: "idle" }
-  | { type: "dragging"; entityType: "room" | "furniture" | "door"; entityId: string; originalPosition: Point; originalRoomId: string; pendingRoomId: string; startMousePos: Point }
+  | { type: "dragging"; entityType: "room" | "furniture"; entityId: string; originalPosition: Point; originalRoomId: string; pendingRoomId: string; startMousePos: Point; dragOffset: Point }
+  | { type: "dragging"; entityType: "door"; entityId: string; originalDoorPosition: DoorDragOriginal; originalRoomId: string; pendingRoomId: string; startMousePos: Point }
 
 type UseCanvasInteractionProps = {
   rooms: RoomEntity[]
   furniture: FurnitureEntity[]
+  doors: DoorEntity[]
   onRoomMove: (roomId: string, position: Point) => void
   onRoomMoveThrottled: (roomId: string, position: Point) => void
   onFurnitureMove: (furnitureId: string, position: Point, roomId: string) => void
   onFurnitureMoveThrottled: (furnitureId: string, position: Point, roomId: string) => void
+  onDoorMove: (doorId: string, wallIndex: number, positionOnWall: number) => void
+  onDoorMoveThrottled: (doorId: string, wallIndex: number, positionOnWall: number) => void
   gridSize?: number
   snapThreshold?: number
 }
 
 const THROTTLE_MS = 50
-const NUDGE_AMOUNT = 96
+const NUDGE_AMOUNT = 1
 const DRAG_THRESHOLD = 5
 
 export function useCanvasInteraction({
   rooms,
   furniture,
+  doors,
   onRoomMove,
   onRoomMoveThrottled,
   onFurnitureMove,
   onFurnitureMoveThrottled,
-  gridSize = 24,
-  snapThreshold = 96,
+  onDoorMove,
+  onDoorMoveThrottled,
+  gridSize = 1,
+  snapThreshold = 48,
 }: UseCanvasInteractionProps) {
   const [mode, setMode] = useState<InteractionMode>({ type: "idle" })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<SelectionType>(null)
   const lastSyncRef = useRef<number>(0)
   const pendingPositionRef = useRef<{ position: Point; roomId?: string } | null>(null)
+  const pendingDoorPositionRef = useRef<{ wallIndex: number; positionOnWall: number } | null>(null)
   const hasDraggedRef = useRef(false)
 
   const isDragging = mode.type === "dragging"
   const draggingRoomId = mode.type === "dragging" && mode.entityType === "room" ? mode.entityId : null
   const draggingFurnitureId = mode.type === "dragging" && mode.entityType === "furniture" ? mode.entityId : null
+  const draggingDoorId = mode.type === "dragging" && mode.entityType === "door" ? mode.entityId : null
+  const draggingFurnitureOriginalRoomId = mode.type === "dragging" && mode.entityType === "furniture" ? mode.originalRoomId : null
+  const draggingFurniturePendingRoomId = mode.type === "dragging" && mode.entityType === "furniture" ? mode.pendingRoomId : null
 
   const getSelectedRoom = useCallback(() => {
     if (selectedType !== "room" || !selectedId) return null
@@ -63,176 +74,14 @@ export function useCanvasInteraction({
   }, [selectedType, selectedId, furniture])
 
   const checkRoomCollision = useCallback(
-    (roomId: string, position: Point): boolean => {
-      const room = rooms.find((r) => r.id === roomId)
-      if (!room) return false
-
-      const movingVertices = getAbsoluteVertices(room.vertices, position)
-      for (const other of rooms) {
-        if (other.id === roomId) continue
-        const otherVertices = getAbsoluteVertices(other.vertices, other.position)
-        if (polygonsIntersect(movingVertices, otherVertices)) {
-          return true
-        }
-      }
-      return false
-    },
+    (roomId: string, position: Point): boolean => checkRoomCollisionLib(rooms, roomId, position),
     [rooms]
   )
-
-  const getFurnitureCenter = useCallback((f: FurnitureEntity, room: RoomEntity): Point => {
-    if (f.shapeTemplate.type === "circle") {
-      return {
-        x: room.position.x + f.position.x + f.shapeTemplate.radius,
-        y: room.position.y + f.position.y + f.shapeTemplate.radius,
-      }
-    }
-    const vertices = furnitureShapeToVertices(f.shapeTemplate)
-    const centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length
-    const centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length
-    return {
-      x: room.position.x + f.position.x + centerX,
-      y: room.position.y + f.position.y + centerY,
-    }
-  }, [])
 
   const checkFurnitureCollision = useCallback(
-    (furnitureId: string, position: Point, roomId: string): boolean => {
-      const f = furniture.find((item) => item.id === furnitureId)
-      const room = rooms.find((r) => r.id === roomId)
-      if (!f || !room) return true
-
-      const absolutePos = {
-        x: room.position.x + position.x,
-        y: room.position.y + position.y,
-      }
-
-      if (f.shapeTemplate.type === "circle") {
-        const center = {
-          x: absolutePos.x + f.shapeTemplate.radius,
-          y: absolutePos.y + f.shapeTemplate.radius,
-        }
-        const roomVertices = getAbsoluteVertices(room.vertices, room.position)
-        
-        const innerCheck = furnitureShapeToVertices(f.shapeTemplate).every((v) => {
-          const absV = { x: absolutePos.x + v.x, y: absolutePos.y + v.y }
-          return pointInPolygon(absV, roomVertices)
-        })
-        if (!innerCheck) return true
-
-        for (const other of furniture) {
-          if (other.id === furnitureId) continue
-          const otherRoom = rooms.find((r) => r.id === other.roomId)
-          if (!otherRoom) continue
-
-          const otherAbsPos = {
-            x: otherRoom.position.x + other.position.x,
-            y: otherRoom.position.y + other.position.y,
-          }
-
-          if (other.shapeTemplate.type === "circle") {
-            const otherCenter = {
-              x: otherAbsPos.x + other.shapeTemplate.radius,
-              y: otherAbsPos.y + other.shapeTemplate.radius,
-            }
-            if (circlesIntersect(center, f.shapeTemplate.radius, otherCenter, other.shapeTemplate.radius)) {
-              return true
-            }
-          } else {
-            const otherVertices = getAbsoluteVertices(
-              furnitureShapeToVertices(other.shapeTemplate),
-              otherAbsPos
-            )
-            if (circlePolygonIntersect(center, f.shapeTemplate.radius, otherVertices)) {
-              return true
-            }
-          }
-        }
-      } else {
-        const movingVertices = getAbsoluteVertices(
-          furnitureShapeToVertices(f.shapeTemplate),
-          absolutePos
-        )
-        const roomVertices = getAbsoluteVertices(room.vertices, room.position)
-
-        const allInsideRoom = movingVertices.every((v) => pointInPolygon(v, roomVertices))
-        if (!allInsideRoom) return true
-
-        for (const other of furniture) {
-          if (other.id === furnitureId) continue
-          const otherRoom = rooms.find((r) => r.id === other.roomId)
-          if (!otherRoom) continue
-
-          const otherAbsPos = {
-            x: otherRoom.position.x + other.position.x,
-            y: otherRoom.position.y + other.position.y,
-          }
-
-          if (other.shapeTemplate.type === "circle") {
-            const otherCenter = {
-              x: otherAbsPos.x + other.shapeTemplate.radius,
-              y: otherAbsPos.y + other.shapeTemplate.radius,
-            }
-            if (circlePolygonIntersect(otherCenter, other.shapeTemplate.radius, movingVertices)) {
-              return true
-            }
-          } else {
-            const otherVertices = getAbsoluteVertices(
-              furnitureShapeToVertices(other.shapeTemplate),
-              otherAbsPos
-            )
-            if (polygonsIntersect(movingVertices, otherVertices)) {
-              return true
-            }
-          }
-        }
-      }
-
-      return false
-    },
+    (furnitureId: string, position: Point, roomId: string): boolean => 
+      checkFurnitureCollisionLib(rooms, furniture, furnitureId, position, roomId),
     [furniture, rooms]
-  )
-
-  const findRoomAtPoint = useCallback(
-    (point: Point): RoomEntity | null => {
-      for (const room of rooms) {
-        const vertices = getAbsoluteVertices(room.vertices, room.position)
-        if (pointInPolygon(point, vertices)) {
-          return room
-        }
-      }
-      return null
-    },
-    [rooms]
-  )
-
-  const calculateSnappedPosition = useCallback(
-    (roomId: string, rawPosition: Point): Point => {
-      const room = rooms.find((r) => r.id === roomId)
-      if (!room) return rawPosition
-
-      let position = {
-        x: Math.round(rawPosition.x / gridSize) * gridSize,
-        y: Math.round(rawPosition.y / gridSize) * gridSize,
-      }
-
-      const otherRooms = rooms
-        .filter((r) => r.id !== roomId)
-        .map((r) => ({ vertices: r.vertices, position: r.position }))
-
-      const snapPos = findSnapPosition(
-        { vertices: room.vertices, position },
-        otherRooms,
-        snapThreshold
-      )
-
-      if (snapPos) {
-        position = snapPos
-      }
-
-      return position
-    },
-    [rooms, gridSize, snapThreshold]
   )
 
   const select = useCallback((id: string, type: "room" | "furniture" | "door") => {
@@ -246,10 +95,14 @@ export function useCanvasInteraction({
   }, [])
 
   const startDragging = useCallback(
-    (entityId: string, entityType: "room" | "furniture", mousePos: Point) => {
+    (entityId: string, entityType: "room" | "furniture" | "door", mousePos: Point, worldPos: Point) => {
       if (entityType === "room") {
         const room = rooms.find((r) => r.id === entityId)
         if (!room) return
+        const dragOffset = {
+          x: worldPos.x - room.position.x,
+          y: worldPos.y - room.position.y,
+        }
         setMode({
           type: "dragging",
           entityType: "room",
@@ -258,10 +111,17 @@ export function useCanvasInteraction({
           originalRoomId: room.id,
           pendingRoomId: room.id,
           startMousePos: mousePos,
+          dragOffset,
         })
-      } else {
+      } else if (entityType === "furniture") {
         const f = furniture.find((item) => item.id === entityId)
         if (!f) return
+        const room = rooms.find((r) => r.id === f.roomId)
+        if (!room) return
+        const dragOffset = {
+          x: worldPos.x - room.position.x - f.position.x,
+          y: worldPos.y - room.position.y - f.position.y,
+        }
         setMode({
           type: "dragging",
           entityType: "furniture",
@@ -270,11 +130,24 @@ export function useCanvasInteraction({
           originalRoomId: f.roomId,
           pendingRoomId: f.roomId,
           startMousePos: mousePos,
+          dragOffset,
+        })
+      } else if (entityType === "door") {
+        const door = doors.find((d) => d.id === entityId)
+        if (!door) return
+        setMode({
+          type: "dragging",
+          entityType: "door",
+          entityId,
+          originalDoorPosition: { wallIndex: door.wallIndex, positionOnWall: door.positionOnWall },
+          originalRoomId: door.roomId,
+          pendingRoomId: door.roomId,
+          startMousePos: mousePos,
         })
       }
       hasDraggedRef.current = false
     },
-    [rooms, furniture]
+    [rooms, furniture, doors]
   )
 
   const updateDragPosition = useCallback(
@@ -292,15 +165,12 @@ export function useCanvasInteraction({
         const room = rooms.find((r) => r.id === mode.entityId)
         if (!room) return
 
-        const centerOffsetX = room.vertices.reduce((sum, v) => sum + v.x, 0) / room.vertices.length
-        const centerOffsetY = room.vertices.reduce((sum, v) => sum + v.y, 0) / room.vertices.length
-
         const rawPosition = {
-          x: worldPosition.x - centerOffsetX,
-          y: worldPosition.y - centerOffsetY,
+          x: worldPosition.x - mode.dragOffset.x,
+          y: worldPosition.y - mode.dragOffset.y,
         }
 
-        const snappedPosition = calculateSnappedPosition(mode.entityId, rawPosition)
+        const snappedPosition = calculateSnappedPosition(rooms, mode.entityId, rawPosition, gridSize, snapThreshold)
         onRoomMove(mode.entityId, snappedPosition)
 
         const now = Date.now()
@@ -318,25 +188,14 @@ export function useCanvasInteraction({
         const originalRoom = rooms.find((r) => r.id === mode.originalRoomId)
         if (!originalRoom) return
 
-        const targetRoom = findRoomAtPoint(worldPosition)
+        const targetRoom = findRoomAtPoint(rooms, worldPosition)
         const pendingRoomId = targetRoom?.id ?? mode.originalRoomId
 
         setMode((prev) => prev.type === "dragging" ? { ...prev, pendingRoomId } : prev)
 
-        let centerOffsetX = 0
-        let centerOffsetY = 0
-        if (f.shapeTemplate.type === "circle") {
-          centerOffsetX = f.shapeTemplate.radius
-          centerOffsetY = f.shapeTemplate.radius
-        } else {
-          const verts = furnitureShapeToVertices(f.shapeTemplate)
-          centerOffsetX = verts.reduce((sum, v) => sum + v.x, 0) / verts.length
-          centerOffsetY = verts.reduce((sum, v) => sum + v.y, 0) / verts.length
-        }
-
         const relativePosition = {
-          x: Math.round((worldPosition.x - originalRoom.position.x - centerOffsetX) / gridSize) * gridSize,
-          y: Math.round((worldPosition.y - originalRoom.position.y - centerOffsetY) / gridSize) * gridSize,
+          x: Math.round((worldPosition.x - originalRoom.position.x - mode.dragOffset.x) / gridSize) * gridSize,
+          y: Math.round((worldPosition.y - originalRoom.position.y - mode.dragOffset.y) / gridSize) * gridSize,
         }
 
         onFurnitureMove(mode.entityId, relativePosition, mode.originalRoomId)
@@ -349,19 +208,44 @@ export function useCanvasInteraction({
         } else {
           pendingPositionRef.current = { position: relativePosition, roomId: mode.originalRoomId }
         }
+      } else if (mode.entityType === "door") {
+        const door = doors.find((d) => d.id === mode.entityId)
+        if (!door) return
+
+        const room = rooms.find((r) => r.id === door.roomId)
+        if (!room) return
+
+        const vertices = getRoomVertices(room)
+        const walls = getWallSegments(vertices, room.position)
+        const snapResult = findClosestWallPoint(worldPosition, walls, door.width)
+
+        if (snapResult) {
+          onDoorMove(mode.entityId, snapResult.wallIndex, snapResult.positionOnWall)
+
+          const now = Date.now()
+          if (now - lastSyncRef.current >= THROTTLE_MS) {
+            lastSyncRef.current = now
+            onDoorMoveThrottled(mode.entityId, snapResult.wallIndex, snapResult.positionOnWall)
+            pendingDoorPositionRef.current = null
+          } else {
+            pendingDoorPositionRef.current = { wallIndex: snapResult.wallIndex, positionOnWall: snapResult.positionOnWall }
+          }
+        }
       }
     },
     [
       mode,
       rooms,
       furniture,
+      doors,
       gridSize,
-      calculateSnappedPosition,
-      findRoomAtPoint,
+      snapThreshold,
       onRoomMove,
       onRoomMoveThrottled,
       onFurnitureMove,
       onFurnitureMoveThrottled,
+      onDoorMove,
+      onDoorMoveThrottled,
     ]
   )
 
@@ -425,8 +309,17 @@ export function useCanvasInteraction({
       pendingPositionRef.current = null
     }
 
+    if (pendingDoorPositionRef.current && mode.entityType === "door") {
+      onDoorMoveThrottled(
+        mode.entityId,
+        pendingDoorPositionRef.current.wallIndex,
+        pendingDoorPositionRef.current.positionOnWall
+      )
+      pendingDoorPositionRef.current = null
+    }
+
     setMode({ type: "idle" })
-  }, [mode, furniture, checkFurnitureCollision, onFurnitureMove, onRoomMoveThrottled, onFurnitureMoveThrottled])
+  }, [mode, rooms, furniture, checkFurnitureCollision, onFurnitureMove, onRoomMoveThrottled, onFurnitureMoveThrottled, onDoorMoveThrottled])
 
   const cancelDrag = useCallback(() => {
     if (mode.type !== "dragging") return
@@ -437,10 +330,14 @@ export function useCanvasInteraction({
     } else if (mode.entityType === "furniture") {
       onFurnitureMove(mode.entityId, mode.originalPosition, mode.originalRoomId)
       onFurnitureMoveThrottled(mode.entityId, mode.originalPosition, mode.originalRoomId)
+    } else if (mode.entityType === "door") {
+      onDoorMove(mode.entityId, mode.originalDoorPosition.wallIndex, mode.originalDoorPosition.positionOnWall)
+      onDoorMoveThrottled(mode.entityId, mode.originalDoorPosition.wallIndex, mode.originalDoorPosition.positionOnWall)
     }
     pendingPositionRef.current = null
+    pendingDoorPositionRef.current = null
     setMode({ type: "idle" })
-  }, [mode, onRoomMove, onRoomMoveThrottled, onFurnitureMove, onFurnitureMoveThrottled])
+  }, [mode, onRoomMove, onRoomMoveThrottled, onFurnitureMove, onFurnitureMoveThrottled, onDoorMove, onDoorMoveThrottled])
 
   const nudge = useCallback(
     (direction: "up" | "down" | "left" | "right") => {
@@ -486,11 +383,9 @@ export function useCanvasInteraction({
   )
 
   const handleMouseDown = useCallback(
-    (entityId: string, entityType: "room" | "furniture" | "door", mousePos: Point) => {
+    (entityId: string, entityType: "room" | "furniture" | "door", mousePos: Point, worldPos: Point) => {
       select(entityId, entityType)
-      if (entityType !== "door") {
-        startDragging(entityId, entityType, mousePos)
-      }
+      startDragging(entityId, entityType, mousePos, worldPos)
     },
     [select, startDragging]
   )
@@ -546,6 +441,9 @@ export function useCanvasInteraction({
     isDragging,
     draggingRoomId,
     draggingFurnitureId,
+    draggingDoorId,
+    draggingFurnitureOriginalRoomId,
+    draggingFurniturePendingRoomId,
     getSelectedRoom,
     getSelectedFurniture,
     checkRoomCollision,

@@ -1,5 +1,5 @@
 import type { RoomEntity, Point, WallSegment } from "@apartment-planner/shared"
-import { getWallSegments, formatEighths, eighthsToInches } from "@apartment-planner/shared"
+import { getWallSegments, formatEighths, eighthsToInches, getRoomVertices } from "@apartment-planner/shared"
 import { cn } from "@/lib/utils"
 
 type RoomPolygonProps = {
@@ -48,14 +48,19 @@ export function RoomPolygon({
   isDragging,
   isColliding,
 }: RoomPolygonProps) {
-  const scaledVertices = room.vertices.map((v) => ({
-    x: (v.x + room.position.x) * scale,
-    y: (v.y + room.position.y) * scale,
+  const vertices = getRoomVertices(room)
+  
+  const translateX = room.position.x * scale
+  const translateY = room.position.y * scale
+  
+  const scaledVertices = vertices.map((v) => ({
+    x: v.x * scale,
+    y: v.y * scale,
   }))
 
   const pathData = scaledVertices.map((v, i) => `${i === 0 ? "M" : "L"} ${v.x} ${v.y}`).join(" ") + " Z"
 
-  const walls = getWallSegments(room.vertices, room.position)
+  const walls = getWallSegments(vertices, { x: 0, y: 0 })
 
   const strokeColor = isColliding
     ? "hsl(0 84% 60%)"
@@ -71,12 +76,12 @@ export function RoomPolygon({
 
   const strokeWidth = (isSelected ? 2 : 1.5) * pixelScale
   const dimensionFontSize = 11 * pixelScale
-  const titleFontSize = 13 * pixelScale
-  const titleOffset = 10 * pixelScale
 
   return (
     <g
-      className={cn("transition-opacity", isDragging && "opacity-80")}
+      transform={`translate(${translateX}, ${translateY})`}
+      style={isDragging ? { transition: "transform 60ms ease-out" } : undefined}
+      className={cn(isDragging && "opacity-80")}
     >
       <path
         d={pathData}
@@ -118,21 +123,7 @@ export function RoomPolygon({
           </text>
         )
       })}
-
-      <text
-        x={scaledVertices.reduce((sum, v) => sum + v.x, 0) / scaledVertices.length}
-        y={Math.min(...scaledVertices.map((v) => v.y)) - titleOffset}
-        textAnchor="middle"
-        dominantBaseline="auto"
-        fill="hsl(222 47% 25% / 0.7)"
-        style={{
-          fontSize: titleFontSize,
-          fontWeight: 500,
-        }}
-        className="pointer-events-none select-none"
-      >
-        {room.name}
-      </text>
     </g>
   )
 }
+

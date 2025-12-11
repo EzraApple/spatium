@@ -1,12 +1,20 @@
-import { useRef, useState, useCallback, useEffect, useMemo } from "react"
+import { useRef, useState, useCallback, useEffect, useMemo, useImperativeHandle, forwardRef } from "react"
 import type { RoomEntity, FurnitureEntity, DoorEntity, Point, HingeSide } from "@apartment-planner/shared"
-import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle, findNearestDistances, getWallSegments, findClosestWallPoint, inchesToEighths } from "@apartment-planner/shared"
-import { RoomPolygon } from "@/components/room-polygon"
-import { FurnitureShape } from "@/components/furniture-shape"
-import { DoorShape, GhostDoor } from "@/components/door-shape"
-import { DistanceIndicator } from "@/components/distance-indicator"
+import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, findNearestDistances, getWallSegments, findClosestWallPoint, getRoomVertices } from "@apartment-planner/shared"
+import { RoomPolygon } from "./shapes/room-polygon"
+import { FurnitureShape } from "./shapes/furniture-shape"
+import { DoorShape, GhostDoor } from "./shapes/door-shape"
+import { DistanceIndicator } from "./shapes/distance-indicator"
+import { GRID_SIZE, SCALE } from "./lib/constants"
+import { loadViewBox, saveViewBox, calculateFitToContentViewBox } from "./lib/viewbox"
+import { hitTestFurniture as hitTestFurnitureLib, hitTestRoom as hitTestRoomLib } from "./lib/hit-testing"
 
 export type CursorMode = "grab" | "grabbing" | "pointer" | "crosshair"
+
+export type RoomCanvasHandle = {
+  screenToWorld: (clientX: number, clientY: number) => Point
+  getViewportCenter: () => Point
+}
 
 type PlacingDoorState = {
   roomId: string
@@ -23,8 +31,11 @@ type RoomCanvasProps = {
   selectedType: "room" | "furniture" | "door" | null
   draggingRoomId: string | null
   draggingFurnitureId: string | null
+  draggingDoorId: string | null
+  draggingFurnitureOriginalRoomId: string | null
+  draggingFurniturePendingRoomId: string | null
   placingDoor: PlacingDoorState | null
-  onMouseDown: (entityId: string, entityType: "room" | "furniture" | "door", mousePos: Point) => void
+  onMouseDown: (entityId: string, entityType: "room" | "furniture" | "door", mousePos: Point, worldPos: Point) => void
   onMouseUp: () => void
   onDragUpdate: (worldPosition: Point, mousePos: Point) => void
   onCanvasClick: () => void
@@ -34,34 +45,10 @@ type RoomCanvasProps = {
   onDoorPlaceCancel: () => void
   checkRoomCollision: (roomId: string, position: Point) => boolean
   checkFurnitureCollision: (furnitureId: string, position: Point, roomId: string) => boolean
+  onZoomChange: (zoomPercent: number) => void
 }
 
-const GRID_SIZE = 24
-const FIT_PADDING = 0.7
-
-function getStorageKey(roomCode: string) {
-  return `spatium-viewbox-${roomCode}`
-}
-
-function loadViewBox(roomCode: string): { x: number; y: number; width: number; height: number } | null {
-  try {
-    const stored = sessionStorage.getItem(getStorageKey(roomCode))
-    if (stored) {
-      return JSON.parse(stored)
-    }
-  } catch {
-  }
-  return null
-}
-
-function saveViewBox(roomCode: string, viewBox: { x: number; y: number; width: number; height: number }) {
-  try {
-    sessionStorage.setItem(getStorageKey(roomCode), JSON.stringify(viewBox))
-  } catch {
-  }
-}
-
-export function RoomCanvas({
+export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function RoomCanvas({
   roomCode,
   rooms,
   furniture,
@@ -70,6 +57,9 @@ export function RoomCanvas({
   selectedType,
   draggingRoomId,
   draggingFurnitureId,
+  draggingDoorId,
+  draggingFurnitureOriginalRoomId,
+  draggingFurniturePendingRoomId,
   placingDoor,
   onMouseDown,
   onMouseUp,
@@ -81,7 +71,8 @@ export function RoomCanvas({
   onDoorPlaceCancel,
   checkRoomCollision,
   checkFurnitureCollision,
-}: RoomCanvasProps) {
+  onZoomChange,
+}, ref) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [viewBox, setViewBox] = useState(() => {
     const stored = loadViewBox(roomCode)
@@ -125,13 +116,20 @@ export function RoomCanvas({
   const hasInitialFitRef = useRef(false)
   const hasStoredViewBoxRef = useRef(loadViewBox(roomCode) !== null)
   const initialRoomsRef = useRef<RoomEntity[] | null>(null)
-  const isDragging = draggingRoomId !== null || draggingFurnitureId !== null
+  const baseViewWidthRef = useRef<number | null>(null)
+  const isDragging = draggingRoomId !== null || draggingFurnitureId !== null || draggingDoorId !== null
 
-  const scale = 1 / 12
+  const scale = SCALE
 
   useEffect(() => {
     saveViewBox(roomCode, viewBox)
   }, [roomCode, viewBox])
+
+  useEffect(() => {
+    if (baseViewWidthRef.current === null) {
+      baseViewWidthRef.current = viewBox.width
+    }
+  }, [viewBox])
 
   useEffect(() => {
     if (hasInitialFitRef.current) return
@@ -148,53 +146,12 @@ export function RoomCanvas({
 
     hasInitialFitRef.current = true
 
-    const roomsToFit = initialRoomsRef.current
-    const allVertices: Point[] = []
-    for (const room of roomsToFit) {
-      for (const vertex of room.vertices) {
-        allVertices.push({
-          x: (vertex.x + room.position.x) * scale,
-          y: (vertex.y + room.position.y) * scale,
-        })
-      }
-    }
-
-    if (allVertices.length === 0) return
-
-    const minX = Math.min(...allVertices.map((v) => v.x))
-    const maxX = Math.max(...allVertices.map((v) => v.x))
-    const minY = Math.min(...allVertices.map((v) => v.y))
-    const maxY = Math.max(...allVertices.map((v) => v.y))
-
-    const contentWidth = maxX - minX
-    const contentHeight = maxY - minY
-    const centerX = (minX + maxX) / 2
-    const centerY = (minY + maxY) / 2
-
     const rect = svgRef.current.getBoundingClientRect()
-    const aspectRatio = rect.width / rect.height
-
-    const paddedWidth = contentWidth / FIT_PADDING
-    const paddedHeight = contentHeight / FIT_PADDING
-
-    let viewWidth: number
-    let viewHeight: number
-
-    if (paddedWidth / paddedHeight > aspectRatio) {
-      viewWidth = paddedWidth
-      viewHeight = paddedWidth / aspectRatio
-    } else {
-      viewHeight = paddedHeight
-      viewWidth = paddedHeight * aspectRatio
+    const fitViewBox = calculateFitToContentViewBox(initialRoomsRef.current, rect.width, rect.height)
+    if (fitViewBox) {
+      setViewBox(fitViewBox)
     }
-
-    setViewBox({
-      x: centerX - viewWidth / 2,
-      y: centerY - viewHeight / 2,
-      width: viewWidth,
-      height: viewHeight,
-    })
-  }, [rooms, scale])
+  }, [rooms])
 
   const screenToSvg = useCallback(
     (clientX: number, clientY: number): Point => {
@@ -217,50 +174,27 @@ export function RoomCanvas({
     [scale]
   )
 
-  const hitTestFurniture = useCallback(
-    (worldPos: Point): FurnitureEntity | null => {
-      for (const f of furniture) {
-        const room = rooms.find((r) => r.id === f.roomId)
-        if (!room) continue
-
-        const absolutePos = {
-          x: room.position.x + f.position.x,
-          y: room.position.y + f.position.y,
-        }
-
-        if (f.shapeTemplate.type === "circle") {
-          const center = {
-            x: absolutePos.x + f.shapeTemplate.radius,
-            y: absolutePos.y + f.shapeTemplate.radius,
-          }
-          if (pointInCircle(worldPos, center, f.shapeTemplate.radius)) {
-            return f
-          }
-        } else {
-          const vertices = getAbsoluteVertices(
-            furnitureShapeToVertices(f.shapeTemplate),
-            absolutePos
-          )
-          if (pointInPolygon(worldPos, vertices)) {
-            return f
-          }
-        }
-      }
-      return null
+  useImperativeHandle(ref, () => ({
+    screenToWorld: (clientX: number, clientY: number): Point => {
+      const svgPos = screenToSvg(clientX, clientY)
+      return svgToWorld(svgPos)
     },
+    getViewportCenter: (): Point => {
+      const centerSvg = {
+        x: viewBox.x + viewBox.width / 2,
+        y: viewBox.y + viewBox.height / 2,
+      }
+      return svgToWorld(centerSvg)
+    },
+  }), [screenToSvg, svgToWorld, viewBox])
+
+  const hitTestFurniture = useCallback(
+    (worldPos: Point): FurnitureEntity | null => hitTestFurnitureLib(worldPos, furniture, rooms),
     [furniture, rooms]
   )
 
   const hitTestRoom = useCallback(
-    (worldPos: Point): RoomEntity | null => {
-      for (const room of rooms) {
-        const vertices = getAbsoluteVertices(room.vertices, room.position)
-        if (pointInPolygon(worldPos, vertices)) {
-          return room
-        }
-      }
-      return null
-    },
+    (worldPos: Point): RoomEntity | null => hitTestRoomLib(worldPos, rooms),
     [rooms]
   )
 
@@ -305,13 +239,13 @@ export function RoomCanvas({
 
     const hitFurniture = hitTestFurniture(worldPos)
     if (hitFurniture) {
-      onMouseDown(hitFurniture.id, "furniture", { x: e.clientX, y: e.clientY })
+      onMouseDown(hitFurniture.id, "furniture", { x: e.clientX, y: e.clientY }, worldPos)
       return
     }
 
     const hitRoom = hitTestRoom(worldPos)
     if (hitRoom) {
-      onMouseDown(hitRoom.id, "room", { x: e.clientX, y: e.clientY })
+      onMouseDown(hitRoom.id, "room", { x: e.clientX, y: e.clientY }, worldPos)
       return
     }
 
@@ -346,7 +280,7 @@ export function RoomCanvas({
       const worldPos = svgToWorld(svgPos)
       const room = rooms.find((r) => r.id === placingDoor.roomId)
       if (room) {
-        const walls = getWallSegments(room.vertices, room.position)
+        const walls = getWallSegments(getRoomVertices(room), room.position)
         const snapResult = findClosestWallPoint(worldPos, walls, placingDoor.doorWidth)
         if (snapResult) {
           setGhostDoor({
@@ -382,11 +316,19 @@ export function RoomCanvas({
     const svgPos = screenToSvg(e.clientX, e.clientY)
 
     setViewBox((prev) => {
+      const baseWidth = baseViewWidthRef.current ?? prev.width
+      if (baseViewWidthRef.current === null) {
+        baseViewWidthRef.current = baseWidth
+      }
+
       const newWidth = prev.width * zoomFactor
       const newHeight = prev.height * zoomFactor
 
       const newX = svgPos.x - (svgPos.x - prev.x) * zoomFactor
       const newY = svgPos.y - (svgPos.y - prev.y) * zoomFactor
+
+      const zoomPercent = Math.round((baseWidth / newWidth) * 100)
+      onZoomChange(zoomPercent)
 
       return { x: newX, y: newY, width: newWidth, height: newHeight }
     })
@@ -413,10 +355,55 @@ export function RoomCanvas({
 
   const getFurnitureCollisionState = (f: FurnitureEntity): boolean => {
     if (f.id !== draggingFurnitureId) return false
+    
+    if (draggingFurniturePendingRoomId && draggingFurnitureOriginalRoomId && draggingFurniturePendingRoomId !== draggingFurnitureOriginalRoomId) {
+      const originalRoom = rooms.find((r) => r.id === draggingFurnitureOriginalRoomId)
+      const pendingRoom = rooms.find((r) => r.id === draggingFurniturePendingRoomId)
+      if (originalRoom && pendingRoom) {
+        const absolutePos = {
+          x: originalRoom.position.x + f.position.x,
+          y: originalRoom.position.y + f.position.y,
+        }
+        const relativeToNewRoom = {
+          x: absolutePos.x - pendingRoom.position.x,
+          y: absolutePos.y - pendingRoom.position.y,
+        }
+        return checkFurnitureCollision(f.id, relativeToNewRoom, draggingFurniturePendingRoomId)
+      }
+    }
+    
     return checkFurnitureCollision(f.id, f.position, f.roomId)
   }
 
   const pixelScale = svgRef.current ? viewBox.width / svgRef.current.clientWidth : 1
+  const selectedRoom = useMemo(
+    () => (selectedType === "room" ? rooms.find((r) => r.id === selectedId) ?? null : null),
+    [rooms, selectedId, selectedType]
+  )
+  const selectedRoomLabel = useMemo(() => {
+    if (!selectedRoom) return null
+
+    const vertices = getRoomVertices(selectedRoom)
+    const scaledVertices = vertices.map((v) => ({
+      x: (v.x + selectedRoom.position.x) * scale,
+      y: (v.y + selectedRoom.position.y) * scale,
+    }))
+
+    const titleFontSize = 13 * pixelScale
+    const titleOffset = 10 * pixelScale
+    const padding = 3 * pixelScale
+    const textWidth = selectedRoom.name.length * titleFontSize * 0.55
+    const textHeight = titleFontSize * 1.05
+
+    return {
+      x: scaledVertices.reduce((sum, v) => sum + v.x, 0) / scaledVertices.length,
+      y: Math.min(...scaledVertices.map((v) => v.y)) - titleOffset,
+      fontSize: titleFontSize,
+      roomName: selectedRoom.name,
+      bgWidth: textWidth + padding * 2,
+      bgHeight: textHeight + padding * 2,
+    }
+  }, [pixelScale, scale, selectedRoom])
 
   const visibleFurniture = furniture
 
@@ -439,7 +426,7 @@ export function RoomCanvas({
       absolutePos
     )
 
-    const roomWallVerts = getAbsoluteVertices(room.vertices, room.position)
+    const roomWallVerts = getAbsoluteVertices(getRoomVertices(room), room.position)
 
     const allVertsInsideRoom = furnitureVerts.every((v) => pointInPolygon(v, roomWallVerts))
     if (!allVertsInsideRoom) return []
@@ -534,10 +521,13 @@ export function RoomCanvas({
             pixelScale={pixelScale}
             isSelected={selectedType === "furniture" && selectedId === f.id}
             isDragging={draggingFurnitureId === f.id}
+            isRoomDragging={draggingRoomId === f.roomId}
             isColliding={getFurnitureCollisionState(f)}
             onMouseDown={(e) => {
               e.stopPropagation()
-              onMouseDown(f.id, "furniture", { x: e.clientX, y: e.clientY })
+              const svgPos = screenToSvg(e.clientX, e.clientY)
+              const worldPos = svgToWorld(svgPos)
+              onMouseDown(f.id, "furniture", { x: e.clientX, y: e.clientY }, worldPos)
             }}
           />
         )
@@ -554,9 +544,13 @@ export function RoomCanvas({
             scale={scale}
             pixelScale={pixelScale}
             isSelected={selectedType === "door" && selectedId === door.id}
+            isDragging={draggingDoorId === door.id}
+            isRoomDragging={draggingRoomId === door.roomId}
             onMouseDown={(e) => {
               e.stopPropagation()
-              onMouseDown(door.id, "door", { x: e.clientX, y: e.clientY })
+              const svgPos = screenToSvg(e.clientX, e.clientY)
+              const worldPos = svgToWorld(svgPos)
+              onMouseDown(door.id, "door", { x: e.clientX, y: e.clientY }, worldPos)
             }}
           />
         )
@@ -572,7 +566,7 @@ export function RoomCanvas({
             positionOnWall={ghostDoor.positionOnWall}
             doorWidth={placingDoor.doorWidth}
             hingeSide={placingDoor.hingeSide}
-            roomVertices={room.vertices}
+            roomVertices={getRoomVertices(room)}
             roomPosition={room.position}
             scale={scale}
             pixelScale={pixelScale}
@@ -590,6 +584,35 @@ export function RoomCanvas({
           pixelScale={pixelScale}
         />
       ))}
+
+      {selectedRoomLabel && (
+        <g className="pointer-events-none select-none">
+          <rect
+            x={selectedRoomLabel.x - selectedRoomLabel.bgWidth / 2}
+            y={selectedRoomLabel.y - selectedRoomLabel.bgHeight / 2}
+            width={selectedRoomLabel.bgWidth}
+            height={selectedRoomLabel.bgHeight}
+            rx={3 * pixelScale}
+            ry={3 * pixelScale}
+            fill="white"
+            fillOpacity={0.92}
+          />
+          <text
+            x={selectedRoomLabel.x}
+            y={selectedRoomLabel.y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="hsl(222 47% 25%)"
+            style={{
+              fontSize: selectedRoomLabel.fontSize,
+              fontWeight: 600,
+            }}
+          >
+            {selectedRoomLabel.roomName}
+          </text>
+        </g>
+      )}
     </svg>
   )
-}
+})
+

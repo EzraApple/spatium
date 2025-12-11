@@ -1,5 +1,5 @@
 import type { DoorEntity, RoomEntity, Point, HingeSide } from "@apartment-planner/shared"
-import { getDoorAbsolutePosition, getDoorGeometry } from "@apartment-planner/shared"
+import { getDoorAbsolutePosition, getDoorGeometry, getRoomVertices } from "@apartment-planner/shared"
 import { cn } from "@/lib/utils"
 
 type DoorShapeProps = {
@@ -8,6 +8,8 @@ type DoorShapeProps = {
   scale: number
   pixelScale: number
   isSelected: boolean
+  isDragging: boolean
+  isRoomDragging: boolean
   isGhost?: boolean
   onMouseDown?: (e: React.MouseEvent) => void
 }
@@ -22,49 +24,54 @@ export function DoorShape({
   scale,
   pixelScale,
   isSelected,
+  isDragging,
+  isRoomDragging,
   isGhost = false,
   onMouseDown,
 }: DoorShapeProps) {
-  const result = getDoorAbsolutePosition(door, room.vertices, room.position)
+  const vertices = getRoomVertices(room)
+  const result = getDoorAbsolutePosition(door, vertices, room.position)
   if (!result) return null
 
   const { geometry } = result
 
+  const translateX = geometry.hingePoint.x * scale
+  const translateY = geometry.hingePoint.y * scale
+
   const doorStart = {
-    x: geometry.doorStart.x * scale,
-    y: geometry.doorStart.y * scale,
+    x: (geometry.doorStart.x - geometry.hingePoint.x) * scale,
+    y: (geometry.doorStart.y - geometry.hingePoint.y) * scale,
   }
   const doorEnd = {
-    x: geometry.doorEnd.x * scale,
-    y: geometry.doorEnd.y * scale,
-  }
-  const hingePoint = {
-    x: geometry.hingePoint.x * scale,
-    y: geometry.hingePoint.y * scale,
+    x: (geometry.doorEnd.x - geometry.hingePoint.x) * scale,
+    y: (geometry.doorEnd.y - geometry.hingePoint.y) * scale,
   }
   const swingStart = {
-    x: geometry.swingStartPoint.x * scale,
-    y: geometry.swingStartPoint.y * scale,
+    x: (geometry.swingStartPoint.x - geometry.hingePoint.x) * scale,
+    y: (geometry.swingStartPoint.y - geometry.hingePoint.y) * scale,
   }
   const swingEnd = {
-    x: geometry.swingEndPoint.x * scale,
-    y: geometry.swingEndPoint.y * scale,
+    x: (geometry.swingEndPoint.x - geometry.hingePoint.x) * scale,
+    y: (geometry.swingEndPoint.y - geometry.hingePoint.y) * scale,
   }
   const swingRadius = geometry.swingRadius * scale
 
-  const swingArcPath = `M ${hingePoint.x} ${hingePoint.y} L ${swingStart.x} ${swingStart.y} A ${swingRadius} ${swingRadius} 0 0 ${geometry.sweepFlag} ${swingEnd.x} ${swingEnd.y} Z`
+  const swingArcPath = `M 0 0 L ${swingStart.x} ${swingStart.y} A ${swingRadius} ${swingRadius} 0 0 ${geometry.sweepFlag} ${swingEnd.x} ${swingEnd.y} Z`
 
   const strokeColor = isSelected ? "hsl(221 83% 53%)" : DOOR_COLOR
   const strokeWidth = (isSelected ? 3 : 2.5) * pixelScale
   const swingFill = isSelected ? SWING_COLOR_SELECTED : SWING_COLOR
 
   const hingeRadius = 3 * pixelScale
+  const shouldTransition = isDragging || isRoomDragging
 
   return (
     <g
+      transform={`translate(${translateX}, ${translateY})`}
+      style={shouldTransition ? { transition: "transform 60ms ease-out", pointerEvents: onMouseDown ? "all" : "none" } : { pointerEvents: onMouseDown ? "all" : "none" }}
       className={cn(
-        "transition-opacity",
         isGhost && "opacity-60",
+        isDragging && "opacity-80",
         onMouseDown && "cursor-pointer"
       )}
       onMouseDown={onMouseDown}
@@ -74,6 +81,7 @@ export function DoorShape({
         fill={swingFill}
         stroke="none"
         className="transition-colors"
+        style={{ pointerEvents: "all" }}
       />
 
       <line
@@ -85,14 +93,16 @@ export function DoorShape({
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         className="transition-colors"
+        style={{ pointerEvents: "all" }}
       />
 
       <circle
-        cx={hingePoint.x}
-        cy={hingePoint.y}
+        cx={0}
+        cy={0}
         r={hingeRadius}
         fill={strokeColor}
         className="transition-colors"
+        style={{ pointerEvents: "all" }}
       />
     </g>
   )
