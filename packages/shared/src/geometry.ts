@@ -1,4 +1,13 @@
-import type { Point, ShapeTemplate, FurnitureShapeTemplate, WallSegment, DoorEntity, HingeSide, RoomEntity } from "./entities"
+import type {
+  DoorEntity,
+  FurnitureEntity,
+  FurnitureShapeTemplate,
+  HingeSide,
+  Point,
+  RoomEntity,
+  ShapeTemplate,
+  WallSegment,
+} from "./entities"
 
 export function getRoomVertices(room: RoomEntity): Point[] {
   return shapeToVertices(room.shapeTemplate)
