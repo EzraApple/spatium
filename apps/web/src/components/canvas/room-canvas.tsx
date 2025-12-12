@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useMemo, useImperativeHandle, forwardRef } from "react"
 import type { RoomEntity, FurnitureEntity, DoorEntity, Point, HingeSide } from "@apartment-planner/shared"
-import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, findNearestDistances, getWallSegments, findClosestWallPoint, getRoomVertices } from "@apartment-planner/shared"
+import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, findNearestDistances, getWallSegments, findClosestWallPoint, getRoomVertices, getFurnitureVertices } from "@apartment-planner/shared"
 import { RoomPolygon } from "./shapes/room-polygon"
 import { FurnitureShape } from "./shapes/furniture-shape"
 import { DoorShape, GhostDoor } from "./shapes/door-shape"
@@ -432,7 +432,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     }
 
     const furnitureVerts = getAbsoluteVertices(
-      furnitureShapeToVertices(draggedFurniture.shapeTemplate),
+      getFurnitureVertices(draggedFurniture),
       absolutePos
     )
 
@@ -449,7 +449,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
           y: room.position.y + f.position.y,
         }
         return {
-          vertices: getAbsoluteVertices(furnitureShapeToVertices(f.shapeTemplate), otherAbsPos),
+          vertices: getAbsoluteVertices(getFurnitureVertices(f), otherAbsPos),
           name: f.name,
         }
       })

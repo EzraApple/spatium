@@ -4,6 +4,7 @@ import {
   polygonsIntersect,
   pointInPolygon,
   furnitureShapeToVertices,
+  getFurnitureVertices,
   circlesIntersect,
   circlePolygonIntersect,
   getRoomVertices,
@@ -77,7 +78,7 @@ export function checkFurnitureCollision(
         }
       } else {
         const otherVertices = getAbsoluteVertices(
-          furnitureShapeToVertices(other.shapeTemplate),
+          getFurnitureVertices(other),
           otherAbsPos
         )
         if (circlePolygonIntersect(center, f.shapeTemplate.radius, otherVertices)) {
@@ -87,7 +88,7 @@ export function checkFurnitureCollision(
     }
   } else {
     const movingVertices = getAbsoluteVertices(
-      furnitureShapeToVertices(f.shapeTemplate),
+      getFurnitureVertices({ ...f, position }),
       absolutePos
     )
     const roomVertices = getAbsoluteVertices(getRoomVertices(room), room.position)
@@ -115,7 +116,7 @@ export function checkFurnitureCollision(
         }
       } else {
         const otherVertices = getAbsoluteVertices(
-          furnitureShapeToVertices(other.shapeTemplate),
+          getFurnitureVertices(other),
           otherAbsPos
         )
         if (polygonsIntersect(movingVertices, otherVertices)) {

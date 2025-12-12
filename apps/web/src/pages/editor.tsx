@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { LayoutHeader, ConnectionStatus } from "@/components/layout"
+import { LayoutHeader } from "@/components/layout"
 import { CursorCanvas, LocalCursor, ClickRipple } from "@/components/cursors"
 import { RoomSidebar } from "@/components/sidebar"
 import { RoomCanvas, type CursorMode, type RoomCanvasHandle } from "@/components/canvas"
@@ -380,9 +380,9 @@ export function EditorPage() {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      <LayoutHeader layout={layout} onNameChange={handleNameChange} />
+      <LayoutHeader layout={layout} onNameChange={handleNameChange} status={socket.status} clientCount={clientCount} myColor={myColor} />
 
-      <SidebarProvider defaultOpen={true} className="flex-1">
+      <SidebarProvider defaultOpen={true} className="flex-1 min-h-0">
         <RoomSidebar
           rooms={rooms}
           furniture={furniture}
@@ -455,7 +455,6 @@ export function EditorPage() {
               ))}
             </div>
 
-            <ConnectionStatus status={socket.status} clientCount={clientCount} myColor={myColor} />
 
             {zoomPercent !== null && (
               <div

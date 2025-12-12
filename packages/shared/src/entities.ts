@@ -74,6 +74,12 @@ export type FurnitureShapeTemplate =
   | CircleFurnitureTemplate
   | LShapedFurnitureTemplate
 
+export type FurnitureRotation = 0 | 90 | 180 | 270
+
+export function isFurnitureRotation(value: unknown): value is FurnitureRotation {
+  return value === 0 || value === 90 || value === 180 || value === 270
+}
+
 export type FurnitureEntity = {
   type: "furniture"
   id: string
@@ -83,7 +89,7 @@ export type FurnitureEntity = {
   position: Point
   shapeTemplate: FurnitureShapeTemplate
   color?: string
-  rotation?: 0 | 90 | 180 | 270
+  rotation: FurnitureRotation
 }
 
 export type HingeSide = "left" | "right"
@@ -102,12 +108,12 @@ export type DoorEntity = {
 export type Entity = RoomEntity | FurnitureEntity | DoorEntity
 
 export type LayoutDocument = {
-  version: 1
+  version: 1 | 2
   entities: Entity[]
 }
 
 export const DEFAULT_LAYOUT_DOCUMENT: LayoutDocument = {
-  version: 1,
+  version: 2,
   entities: [],
 }
 

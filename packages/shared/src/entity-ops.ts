@@ -1,6 +1,55 @@
 import type { Entity, RoomEntity, FurnitureEntity, DoorEntity, LayoutDocument, Point } from "./entities"
+import { isFurnitureRotation } from "./entities"
 
 export type EntityType = "room" | "furniture" | "door"
+
+export function normalizeLayoutDocument(document: LayoutDocument): {
+  document: LayoutDocument
+  didChange: boolean
+} {
+  let didChange = false
+
+  const isV1 = document.version === 1
+
+  const entities = document.entities.map((entity) => {
+    if (entity.type !== "furniture") return entity
+
+    const furniture = entity as FurnitureEntity
+    const nextRotation = isFurnitureRotation((furniture as unknown as { rotation?: unknown }).rotation)
+      ? furniture.rotation
+      : 0
+    let nextShapeTemplate = furniture.shapeTemplate
+
+    if (
+      isV1 &&
+      furniture.furnitureType === "bed" &&
+      furniture.shapeTemplate.type === "rectangle" &&
+      (nextRotation === 90 || nextRotation === 270)
+    ) {
+      nextShapeTemplate = {
+        type: "rectangle",
+        width: furniture.shapeTemplate.height,
+        height: furniture.shapeTemplate.width,
+      }
+    }
+
+    const rotationChanged = furniture.rotation !== nextRotation
+    const shapeChanged = nextShapeTemplate !== furniture.shapeTemplate
+
+    if (!rotationChanged && !shapeChanged) return furniture
+
+    didChange = true
+    return { ...furniture, rotation: nextRotation, shapeTemplate: nextShapeTemplate }
+  })
+
+  const nextVersion = isV1 ? 2 : document.version
+  const versionChanged = document.version !== nextVersion
+  didChange = didChange || versionChanged
+
+  if (!didChange) return { document, didChange: false }
+
+  return { document: { ...document, version: nextVersion, entities }, didChange: true }
+}
 
 export function addEntity<T extends Entity>(entities: Entity[], entity: T): Entity[] {
   return [...entities, entity]

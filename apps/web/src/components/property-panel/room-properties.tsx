@@ -4,7 +4,6 @@ import { HexColorPicker } from "react-colorful"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { PropertySheet } from "./property-sheet"
 import type { RoomEntity, ShapeTemplate, Corner } from "@apartment-planner/shared"
 import { formatInchesForEditor, parseInchesFromEditor } from "@apartment-planner/shared"
@@ -25,7 +24,7 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
   const [bevelSize, setBevelSize] = useState("")
   const [bevelCorner, setBevelCorner] = useState<Corner>("top-right")
-  const focusedRoomRef = useRef<RoomEntity | null>(null)
+  const focusedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     setName(room.name)
@@ -46,8 +45,8 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
   }, [room])
 
   const handleFocusCapture = useCallback(() => {
-    focusedRoomRef.current = room
-  }, [room])
+    focusedIdRef.current = room.id
+  }, [room.id])
 
   const handleColorChange = useCallback((newColor: string) => {
     setRoomColor(newColor)
@@ -58,13 +57,13 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
   }, [room, onUpdate])
 
   const handleSave = useCallback((overrides?: { cutCorner?: Corner; bevelCorner?: Corner }) => {
-    const target = focusedRoomRef.current ?? room
-    const widthEighths = parseInchesFromEditor(width) ?? target.shapeTemplate.width
-    const heightEighths = parseInchesFromEditor(height) ?? target.shapeTemplate.height
+    if (focusedIdRef.current !== null && focusedIdRef.current !== room.id) return
+    const widthEighths = parseInchesFromEditor(width) ?? room.shapeTemplate.width
+    const heightEighths = parseInchesFromEditor(height) ?? room.shapeTemplate.height
 
     let template: ShapeTemplate
 
-    switch (target.shapeTemplate.type) {
+    switch (room.shapeTemplate.type) {
       case "rectangle":
         template = { type: "rectangle", width: widthEighths, height: heightEighths }
         break
@@ -73,8 +72,8 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
           type: "l-shaped",
           width: widthEighths,
           height: heightEighths,
-          cutWidth: parseInchesFromEditor(cutWidth) ?? target.shapeTemplate.cutWidth,
-          cutHeight: parseInchesFromEditor(cutHeight) ?? target.shapeTemplate.cutHeight,
+          cutWidth: parseInchesFromEditor(cutWidth) ?? room.shapeTemplate.cutWidth,
+          cutHeight: parseInchesFromEditor(cutHeight) ?? room.shapeTemplate.cutHeight,
           cutCorner: overrides?.cutCorner ?? cutCorner,
         }
         break
@@ -83,14 +82,14 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
           type: "beveled",
           width: widthEighths,
           height: heightEighths,
-          bevelSize: parseInchesFromEditor(bevelSize) ?? target.shapeTemplate.bevelSize,
+          bevelSize: parseInchesFromEditor(bevelSize) ?? room.shapeTemplate.bevelSize,
           bevelCorner: overrides?.bevelCorner ?? bevelCorner,
         }
         break
     }
 
     onUpdate({
-      ...target,
+      ...room,
       name,
       shapeTemplate: template,
       color: roomColor,
@@ -100,7 +99,20 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
   const handleBlur = () => handleSave()
 
   return (
-    <PropertySheet title="Room">
+    <PropertySheet
+      title="Room"
+      footer={
+        <Button
+          variant="destructive"
+          size="sm"
+          className="w-full"
+          onClick={() => onDelete(room.id)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Room
+        </Button>
+      }
+    >
       <div onFocusCapture={handleFocusCapture} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="prop-name">Name</Label>
@@ -232,18 +244,6 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
             </div>
           </>
         )}
-
-        <Separator className="my-4" />
-
-        <Button
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={() => onDelete(room.id)}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete Room
-        </Button>
       </div>
     </PropertySheet>
   )

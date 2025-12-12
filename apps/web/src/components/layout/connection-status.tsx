@@ -10,7 +10,7 @@ export function ConnectionStatus({
   myColor,
 }: ConnectionStatusProps) {
   return (
-    <div className="fixed bottom-6 left-6 flex items-center gap-3 rounded-full bg-zinc-900/90 px-4 py-2 text-sm text-white backdrop-blur-sm">
+    <div className="flex items-center gap-3 rounded-full bg-zinc-900/90 px-4 py-2 text-sm text-white backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <div
           className={`h-2 w-2 rounded-full ${

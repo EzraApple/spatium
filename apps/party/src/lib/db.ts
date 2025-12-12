@@ -4,7 +4,7 @@ import type { LayoutDocument } from "@apartment-planner/shared"
 
 export const sql = neon(env.DATABASE_URL)
 
-const DEFAULT_DATA: LayoutDocument = { version: 1, entities: [] }
+const DEFAULT_DATA: LayoutDocument = { version: 2, entities: [] }
 
 export type Layout = {
   id: string

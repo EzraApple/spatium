@@ -1,5 +1,5 @@
 import type { Point, RoomEntity, FurnitureEntity } from "@apartment-planner/shared"
-import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle, getRoomVertices } from "@apartment-planner/shared"
+import { getAbsoluteVertices, pointInPolygon, furnitureShapeToVertices, pointInCircle, getRoomVertices, getFurnitureVertices } from "@apartment-planner/shared"
 
 export function hitTestFurniture(
   worldPos: Point,
@@ -25,7 +25,7 @@ export function hitTestFurniture(
       }
     } else {
       const vertices = getAbsoluteVertices(
-        furnitureShapeToVertices(f.shapeTemplate),
+        getFurnitureVertices(f),
         absolutePos
       )
       if (pointInPolygon(worldPos, vertices)) {

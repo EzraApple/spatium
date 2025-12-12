@@ -18,11 +18,12 @@ import {
   getRooms,
   getFurniture,
   getDoors,
+  normalizeLayoutDocument,
 } from "@apartment-planner/shared"
 import { usePartySocket } from "./use-party-socket"
 
 export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
-  const [document, setDocument] = useState<LayoutDocument>({ version: 1, entities: [] })
+  const [document, setDocument] = useState<LayoutDocument>({ version: 2, entities: [] })
   const documentRef = useRef<LayoutDocument>(document)
   documentRef.current = document
 
@@ -31,68 +32,68 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
   useEffect(() => {
     const unsubscribe = subscribe((message: ServerMessage, _socketId: string) => {
       if (message.type === "layout-sync") {
-        setDocument(message.document)
+        setDocument(normalizeLayoutDocument(message.document).document)
       } else if (message.type === "room-added") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: addEntity(prev.entities, message.room),
-        }))
+        }).document)
       } else if (message.type === "room-updated") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: prev.entities.map((e) =>
             e.type === "room" && e.id === message.room.id ? message.room : e
           ),
-        }))
+        }).document)
       } else if (message.type === "room-deleted") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: deleteRoomWithContents(prev.entities, message.roomId),
-        }))
+        }).document)
       } else if (message.type === "room-moved") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: moveRoomEntity(prev.entities, message.roomId, message.position),
-        }))
+        }).document)
       } else if (message.type === "furniture-added") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: addEntity(prev.entities, message.furniture),
-        }))
+        }).document)
       } else if (message.type === "furniture-updated") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: prev.entities.map((e) =>
             e.type === "furniture" && e.id === message.furniture.id ? message.furniture : e
           ),
-        }))
+        }).document)
       } else if (message.type === "furniture-deleted") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: deleteEntity(prev.entities, "furniture", message.furnitureId),
-        }))
+        }).document)
       } else if (message.type === "furniture-moved") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: moveFurnitureEntity(prev.entities, message.furnitureId, message.position, message.roomId),
-        }))
+        }).document)
       } else if (message.type === "door-added") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: addEntity(prev.entities, message.door),
-        }))
+        }).document)
       } else if (message.type === "door-updated") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: prev.entities.map((e) =>
             e.type === "door" && e.id === message.door.id ? message.door : e
           ),
-        }))
+        }).document)
       } else if (message.type === "door-deleted") {
-        setDocument((prev) => ({
+        setDocument((prev) => normalizeLayoutDocument({
           ...prev,
           entities: deleteEntity(prev.entities, "door", message.doorId),
-        }))
+        }).document)
       }
     })
 
@@ -101,41 +102,41 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
 
   useEffect(() => {
     if (status === "disconnected") {
-      setDocument({ version: 1, entities: [] })
+      setDocument({ version: 2, entities: [] })
     }
   }, [status])
 
   const addRoom = useCallback((room: RoomEntity) => {
     send({ type: "room-add", room })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: addEntity(prev.entities, room),
-    }))
+    }).document)
   }, [send])
 
   const updateRoom = useCallback((room: RoomEntity) => {
     send({ type: "room-update", room })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: prev.entities.map((e) =>
         e.type === "room" && e.id === room.id ? room : e
       ),
-    }))
+    }).document)
   }, [send])
 
   const deleteRoom = useCallback((roomId: string) => {
     send({ type: "room-delete", roomId })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: deleteRoomWithContents(prev.entities, roomId),
-    }))
+    }).document)
   }, [send])
 
   const moveRoomLocal = useCallback((roomId: string, position: Point) => {
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: moveRoomEntity(prev.entities, roomId, position),
-    }))
+    }).document)
   }, [])
 
   const moveRoomSync = useCallback((roomId: string, position: Point) => {
@@ -149,35 +150,35 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
 
   const addFurniture = useCallback((furniture: FurnitureEntity) => {
     send({ type: "furniture-add", furniture })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: addEntity(prev.entities, furniture),
-    }))
+    }).document)
   }, [send])
 
   const updateFurniture = useCallback((furniture: FurnitureEntity) => {
     send({ type: "furniture-update", furniture })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: prev.entities.map((e) =>
         e.type === "furniture" && e.id === furniture.id ? furniture : e
       ),
-    }))
+    }).document)
   }, [send])
 
   const deleteFurniture = useCallback((furnitureId: string) => {
     send({ type: "furniture-delete", furnitureId })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: deleteEntity(prev.entities, "furniture", furnitureId),
-    }))
+    }).document)
   }, [send])
 
   const moveFurnitureLocal = useCallback((furnitureId: string, position: Point, roomId: string) => {
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: moveFurnitureEntity(prev.entities, furnitureId, position, roomId),
-    }))
+    }).document)
   }, [])
 
   const moveFurnitureSync = useCallback((furnitureId: string, position: Point, roomId: string) => {
@@ -186,35 +187,35 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
 
   const addDoor = useCallback((door: DoorEntity) => {
     send({ type: "door-add", door })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: addEntity(prev.entities, door),
-    }))
+    }).document)
   }, [send])
 
   const updateDoor = useCallback((door: DoorEntity) => {
     send({ type: "door-update", door })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: prev.entities.map((e) =>
         e.type === "door" && e.id === door.id ? door : e
       ),
-    }))
+    }).document)
   }, [send])
 
   const deleteDoor = useCallback((doorId: string) => {
     send({ type: "door-delete", doorId })
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: deleteEntity(prev.entities, "door", doorId),
-    }))
+    }).document)
   }, [send])
 
   const moveDoorLocal = useCallback((doorId: string, wallIndex: number, positionOnWall: number) => {
-    setDocument((prev) => ({
+    setDocument((prev) => normalizeLayoutDocument({
       ...prev,
       entities: moveDoorEntity(prev.entities, doorId, wallIndex, positionOnWall),
-    }))
+    }).document)
   }, [])
 
   const moveDoorSync = useCallback((doorId: string, wallIndex: number, positionOnWall: number) => {

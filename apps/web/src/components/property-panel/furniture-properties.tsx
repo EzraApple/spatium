@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Trash2 } from "lucide-react"
 import { HexColorPicker } from "react-colorful"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import {
   Select,
   SelectContent,
@@ -54,6 +53,7 @@ export function FurnitureProperties({ furniture, onUpdate, onDelete }: Furniture
   const [lWidth, setLWidth] = useState("")
   const [lDepth, setLDepth] = useState("")
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
+  const focusedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     setName(furniture.name)
@@ -82,7 +82,12 @@ export function FurnitureProperties({ furniture, onUpdate, onDelete }: Furniture
     }
   }, [furniture])
 
+  const handleFocusCapture = useCallback(() => {
+    focusedIdRef.current = furniture.id
+  }, [furniture.id])
+
   const handleSave = useCallback((overrides?: { cutCorner?: Corner }) => {
+    if (focusedIdRef.current !== null && focusedIdRef.current !== furniture.id) return
     let template: FurnitureShapeTemplate
 
     if (furniture.shapeTemplate.type === "circle") {
@@ -143,70 +148,87 @@ export function FurnitureProperties({ furniture, onUpdate, onDelete }: Furniture
     })
   }, [furniture, onUpdate])
 
-  const handleBedRotate = useCallback(() => {
-    if (furniture.shapeTemplate.type !== "rectangle") return
-
-    const widthIn = parseInchesFromEditor(width) ?? furniture.shapeTemplate.width
-    const heightIn = parseInchesFromEditor(height) ?? furniture.shapeTemplate.height
-
-    const nextWidth = heightIn
-    const nextHeight = widthIn
-
-    setWidth(formatInchesForEditor(nextWidth))
-    setHeight(formatInchesForEditor(nextHeight))
-
-    const nextWidthDisplay = nextWidth / 8
-    const nextHeightDisplay = nextHeight / 8
-    const preset = BED_SIZE_PRESETS.find((p) => p.widthIn === nextWidthDisplay && p.heightIn === nextHeightDisplay)
-    setBedPreset(preset?.value ?? "custom")
-
-    const currentRotation = furniture.rotation ?? 0
-    const nextRotation = ((currentRotation + 90) % 360) as 0 | 90 | 180 | 270
-
-    onUpdate({
-      ...furniture,
-      rotation: nextRotation,
-      shapeTemplate: {
-        type: "rectangle",
-        width: nextWidth,
-        height: nextHeight,
-      },
-    })
-  }, [furniture, width, height, onUpdate])
-
   const handleBlur = () => handleSave()
 
   const shapeType = furniture.shapeTemplate.type
   const furnitureTypeLabel = FURNITURE_TYPE_LABELS[furniture.furnitureType]
 
   return (
-    <PropertySheet title="Furniture" subtitle={furnitureTypeLabel}>
-      <div className="space-y-2">
-        <Label htmlFor="prop-name">Name</Label>
-        <Input
-          id="prop-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={handleBlur}
-        />
-      </div>
-
-      {shapeType === "circle" && (
+    <PropertySheet
+      title="Furniture"
+      subtitle={furnitureTypeLabel}
+      footer={
+        <Button
+          variant="destructive"
+          size="sm"
+          className="w-full"
+          onClick={() => onDelete(furniture.id)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Furniture
+        </Button>
+      }
+    >
+      <div onFocusCapture={handleFocusCapture} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="prop-radius">Radius (in)</Label>
+          <Label htmlFor="prop-name">Name</Label>
           <Input
-            id="prop-radius"
-            value={radius}
-            onChange={(e) => setRadius(e.target.value)}
+            id="prop-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             onBlur={handleBlur}
           />
         </div>
-      )}
 
-      {shapeType === "rectangle" && (
-        <>
-          {furniture.furnitureType === "bed" && (
-            <>
+        <div className="space-y-2">
+          <Label>Rotation</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Select
+              value={String(furniture.rotation)}
+              onValueChange={(value) => {
+                const nextRotation = Number(value) as 0 | 90 | 180 | 270
+                onUpdate({ ...furniture, rotation: nextRotation })
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">0°</SelectItem>
+                <SelectItem value="90">90°</SelectItem>
+                <SelectItem value="180">180°</SelectItem>
+                <SelectItem value="270">270°</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const nextRotation = ((furniture.rotation + 90) % 360) as 0 | 90 | 180 | 270
+                onUpdate({ ...furniture, rotation: nextRotation })
+              }}
+            >
+              Rotate 90°
+            </Button>
+          </div>
+        </div>
+
+        {shapeType === "circle" && (
+          <div className="space-y-2">
+            <Label htmlFor="prop-radius">Radius (in)</Label>
+            <Input
+              id="prop-radius"
+              value={radius}
+              onChange={(e) => setRadius(e.target.value)}
+              onBlur={handleBlur}
+            />
+          </div>
+        )}
+
+        {shapeType === "rectangle" && (
+          <>
+            {furniture.furnitureType === "bed" && (
               <div className="space-y-2">
                 <Label>Bed size</Label>
                 <Select
@@ -228,153 +250,138 @@ export function FurnitureProperties({ furniture, onUpdate, onDelete }: Furniture
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleBedRotate}>
-                Rotate 90°
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="prop-width">Width (in)</Label>
+                <Input
+                  id="prop-width"
+                  value={width}
+                  onChange={(e) => setWidth(e.target.value)}
+                  onBlur={handleBlur}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prop-height">Height (in)</Label>
+                <Input
+                  id="prop-height"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  onBlur={handleBlur}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {shapeType === "l-shaped" && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="prop-l-length">Length (in)</Label>
+              <Input
+                id="prop-l-length"
+                value={lLength}
+                onChange={(e) => setLLength(e.target.value)}
+                onBlur={handleBlur}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prop-l-width">Width (in)</Label>
+              <Input
+                id="prop-l-width"
+                value={lWidth}
+                onChange={(e) => setLWidth(e.target.value)}
+                onBlur={handleBlur}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prop-l-depth">Depth (in)</Label>
+              <Input
+                id="prop-l-depth"
+                value={lDepth}
+                onChange={(e) => setLDepth(e.target.value)}
+                onBlur={handleBlur}
+              />
+            </div>
+            <div className="flex gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  const rotateMap: Record<Corner, Corner> = {
+                    "top-right": "bottom-right",
+                    "bottom-right": "bottom-left",
+                    "bottom-left": "top-left",
+                    "top-left": "top-right",
+                  }
+                  const newCorner = rotateMap[cutCorner]
+                  setCutCorner(newCorner)
+                  handleSave({ cutCorner: newCorner })
+                }}
+              >
+                ↻ 90°
               </Button>
-            </>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
-              <Label htmlFor="prop-width">Width (in)</Label>
-              <Input
-                id="prop-width"
-                value={width}
-                onChange={(e) => setWidth(e.target.value)}
-                onBlur={handleBlur}
-              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  const rotateMap: Record<Corner, Corner> = {
+                    "top-right": "top-left",
+                    "top-left": "bottom-left",
+                    "bottom-left": "bottom-right",
+                    "bottom-right": "top-right",
+                  }
+                  const newCorner = rotateMap[cutCorner]
+                  setCutCorner(newCorner)
+                  handleSave({ cutCorner: newCorner })
+                }}
+              >
+                ↺ 90°
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  const flipMap: Record<Corner, Corner> = {
+                    "top-left": "top-right",
+                    "top-right": "top-left",
+                    "bottom-left": "bottom-right",
+                    "bottom-right": "bottom-left",
+                  }
+                  const newCorner = flipMap[cutCorner]
+                  setCutCorner(newCorner)
+                  handleSave({ cutCorner: newCorner })
+                }}
+              >
+                ⇆ Flip
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="prop-height">Height (in)</Label>
-              <Input
-                id="prop-height"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                onBlur={handleBlur}
-              />
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
-      {shapeType === "l-shaped" && (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="prop-l-length">Length (in)</Label>
+        <div className="space-y-2">
+          <Label>Color</Label>
+          <div className="flex flex-col gap-2">
+            <HexColorPicker
+              color={furnitureColor}
+              onChange={handleColorChange}
+              style={{ width: "100%", height: 150 }}
+            />
             <Input
-              id="prop-l-length"
-              value={lLength}
-              onChange={(e) => setLLength(e.target.value)}
-              onBlur={handleBlur}
+              value={furnitureColor}
+              onChange={(e) => handleColorChange(e.target.value)}
+              placeholder="#4A4A4A"
+              className="font-mono text-xs"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="prop-l-width">Width (in)</Label>
-            <Input
-              id="prop-l-width"
-              value={lWidth}
-              onChange={(e) => setLWidth(e.target.value)}
-              onBlur={handleBlur}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="prop-l-depth">Depth (in)</Label>
-            <Input
-              id="prop-l-depth"
-              value={lDepth}
-              onChange={(e) => setLDepth(e.target.value)}
-              onBlur={handleBlur}
-            />
-          </div>
-          <div className="flex gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => {
-                const rotateMap: Record<Corner, Corner> = {
-                  "top-right": "bottom-right",
-                  "bottom-right": "bottom-left",
-                  "bottom-left": "top-left",
-                  "top-left": "top-right",
-                }
-                const newCorner = rotateMap[cutCorner]
-                setCutCorner(newCorner)
-                handleSave({ cutCorner: newCorner })
-              }}
-            >
-              ↻ 90°
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => {
-                const rotateMap: Record<Corner, Corner> = {
-                  "top-right": "top-left",
-                  "top-left": "bottom-left",
-                  "bottom-left": "bottom-right",
-                  "bottom-right": "top-right",
-                }
-                const newCorner = rotateMap[cutCorner]
-                setCutCorner(newCorner)
-                handleSave({ cutCorner: newCorner })
-              }}
-            >
-              ↺ 90°
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => {
-                const flipMap: Record<Corner, Corner> = {
-                  "top-left": "top-right",
-                  "top-right": "top-left",
-                  "bottom-left": "bottom-right",
-                  "bottom-right": "bottom-left",
-                }
-                const newCorner = flipMap[cutCorner]
-                setCutCorner(newCorner)
-                handleSave({ cutCorner: newCorner })
-              }}
-            >
-              ⇆ Flip
-            </Button>
-          </div>
-        </>
-      )}
-
-      <div className="space-y-2">
-        <Label>Color</Label>
-        <div className="flex flex-col gap-2">
-          <HexColorPicker
-            color={furnitureColor}
-            onChange={handleColorChange}
-            style={{ width: "100%", height: 150 }}
-          />
-          <Input
-            value={furnitureColor}
-            onChange={(e) => handleColorChange(e.target.value)}
-            placeholder="#4A4A4A"
-            className="font-mono text-xs"
-          />
         </div>
       </div>
-
-      <Separator className="my-4" />
-
-      <Button
-        variant="destructive"
-        size="sm"
-        className="w-full"
-        onClick={() => onDelete(furniture.id)}
-      >
-        <Trash2 className="mr-2 h-4 w-4" />
-        Delete Furniture
-      </Button>
     </PropertySheet>
   )
 }

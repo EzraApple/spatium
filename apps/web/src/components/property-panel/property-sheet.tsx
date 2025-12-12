@@ -5,10 +5,11 @@ type PropertySheetProps = {
   title: string
   subtitle?: string
   children: React.ReactNode
+  footer?: React.ReactNode
   className?: string
 }
 
-export function PropertySheet({ title, subtitle, children, className }: PropertySheetProps) {
+export function PropertySheet({ title, subtitle, children, footer, className }: PropertySheetProps) {
   return (
     <div
       className={cn(
@@ -24,6 +25,10 @@ export function PropertySheet({ title, subtitle, children, className }: Property
       <Separator className="my-4" />
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">{children}</div>
+
+      {footer ? (
+        <div className="border-t-2 border-sidebar-border px-4 py-3">{footer}</div>
+      ) : null}
     </div>
   )
 }

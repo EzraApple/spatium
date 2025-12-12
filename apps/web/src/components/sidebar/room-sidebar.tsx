@@ -4,6 +4,7 @@ import type { RoomEntity, FurnitureEntity, DoorEntity } from "@apartment-planner
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupContent,
@@ -16,6 +17,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
+import { SocialIcons } from "./social-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -235,6 +237,9 @@ export function RoomSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="items-center border-t-2 border-sidebar-border p-3">
+        <SocialIcons />
+      </SidebarFooter>
     </Sidebar>
   )
 }

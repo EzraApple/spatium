@@ -105,6 +105,7 @@ export function useEditorActions({
           y: roomCenterY - centerY,
         },
         shapeTemplate: template,
+        rotation: 0,
       }
 
       addFurniture(furniture)

@@ -43,6 +43,30 @@ export function furnitureShapeToVertices(template: FurnitureShapeTemplate): Poin
   }
 }
 
+export function getFurnitureVertices(furniture: FurnitureEntity): Point[] {
+  const vertices = furnitureShapeToVertices(furniture.shapeTemplate)
+  if (furniture.rotation === 0) return vertices
+
+  const minX = Math.min(...vertices.map((v) => v.x))
+  const maxX = Math.max(...vertices.map((v) => v.x))
+  const minY = Math.min(...vertices.map((v) => v.y))
+  const maxY = Math.max(...vertices.map((v) => v.y))
+  const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+
+  const rad = (furniture.rotation * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+
+  return vertices.map((p) => {
+    const dx = p.x - center.x
+    const dy = p.y - center.y
+    return {
+      x: center.x + dx * cos - dy * sin,
+      y: center.y + dx * sin + dy * cos,
+    }
+  })
+}
+
 function circleToVertices(radius: number, segments: number = 32): Point[] {
   const vertices: Point[] = []
   for (let i = 0; i < segments; i++) {

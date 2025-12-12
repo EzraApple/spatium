@@ -80,16 +80,18 @@ export function FurnitureShape({
         className={cn("cursor-pointer", isDragging && "opacity-80")}
         onMouseDown={onMouseDown}
       >
-        <circle
-          cx={radius}
-          cy={radius}
-          r={radius}
-          fill={fillColor}
-          fillOpacity={fillOpacity}
-          stroke={strokeColor}
-          strokeWidth={strokeWidth}
-          className="transition-colors"
-        />
+        <g transform={`rotate(${furniture.rotation} ${radius} ${radius})`}>
+          <circle
+            cx={radius}
+            cy={radius}
+            r={radius}
+            fill={fillColor}
+            fillOpacity={fillOpacity}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            className="transition-colors"
+          />
+        </g>
       </g>
     )
   }
@@ -106,6 +108,8 @@ export function FurnitureShape({
   const maxX = Math.max(...scaledVertices.map((v) => v.x))
   const minY = Math.min(...scaledVertices.map((v) => v.y))
   const maxY = Math.max(...scaledVertices.map((v) => v.y))
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
   const boxWidth = maxX - minX
   const boxHeight = maxY - minY
 
@@ -124,120 +128,51 @@ export function FurnitureShape({
       className={cn("cursor-pointer", isDragging && "opacity-80")}
       onMouseDown={onMouseDown}
     >
-      <defs>
-        <clipPath id={clipId}>
-          <path d={pathData} />
-        </clipPath>
-      </defs>
-      <path
-        d={pathData}
-        fill={fillColor}
-        fillOpacity={fillOpacity}
-        stroke={strokeColor}
-        strokeWidth={strokeWidth}
-        className="transition-colors"
-      />
+      <g transform={`rotate(${furniture.rotation} ${centerX} ${centerY})`}>
+        <defs>
+          <clipPath id={clipId}>
+            <path d={pathData} />
+          </clipPath>
+        </defs>
+        <path
+          d={pathData}
+          fill={fillColor}
+          fillOpacity={fillOpacity}
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
+          className="transition-colors"
+        />
 
-      {furniture.furnitureType === "bed" ? (
-        <g clipPath={`url(#${clipId})`}>
-          {(() => {
-            const bandThickness = clamp(Math.min(boxWidth, boxHeight) * 0.22, 10 * pixelScale, 22 * pixelScale)
-            const bandOffset = clamp(inset * 0.35, 3 * pixelScale, 10 * pixelScale)
-            const bandX = innerX
-            const bandW = innerW
-            const bandY = innerY
-            const bandH = innerH
-            const rotation = furniture.rotation ?? 0
-
-            return (
-              <>
-                {rotation === 0 ? (
-                  <>
-                    <rect
-                      x={bandX}
-                      y={minY + bandOffset}
-                      width={bandW}
-                      height={bandThickness}
-                      fill="hsl(var(--card))"
-                      fillOpacity={0.9}
-                    />
-                    <line
-                      x1={bandX}
-                      y1={minY + bandOffset + bandThickness}
-                      x2={bandX + bandW}
-                      y2={minY + bandOffset + bandThickness}
-                      stroke={strokeColor}
-                      strokeWidth={detailStrokeWidth}
-                      strokeOpacity={detailStrokeOpacity}
-                    />
-                  </>
-                ) : rotation === 90 ? (
-                  <>
-                    <rect
-                      x={maxX - bandOffset - bandThickness}
-                      y={bandY}
-                      width={bandThickness}
-                      height={bandH}
-                      fill="hsl(var(--card))"
-                      fillOpacity={0.9}
-                    />
-                    <line
-                      x1={maxX - bandOffset - bandThickness}
-                      y1={bandY}
-                      x2={maxX - bandOffset - bandThickness}
-                      y2={bandY + bandH}
-                      stroke={strokeColor}
-                      strokeWidth={detailStrokeWidth}
-                      strokeOpacity={detailStrokeOpacity}
-                    />
-                  </>
-                ) : rotation === 180 ? (
-                  <>
-                    <rect
-                      x={bandX}
-                      y={maxY - bandOffset - bandThickness}
-                      width={bandW}
-                      height={bandThickness}
-                      fill="hsl(var(--card))"
-                      fillOpacity={0.9}
-                    />
-                    <line
-                      x1={bandX}
-                      y1={maxY - bandOffset - bandThickness}
-                      x2={bandX + bandW}
-                      y2={maxY - bandOffset - bandThickness}
-                      stroke={strokeColor}
-                      strokeWidth={detailStrokeWidth}
-                      strokeOpacity={detailStrokeOpacity}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <rect
-                      x={minX + bandOffset}
-                      y={bandY}
-                      width={bandThickness}
-                      height={bandH}
-                      fill="hsl(var(--card))"
-                      fillOpacity={0.9}
-                    />
-                    <line
-                      x1={minX + bandOffset + bandThickness}
-                      y1={bandY}
-                      x2={minX + bandOffset + bandThickness}
-                      y2={bandY + bandH}
-                      stroke={strokeColor}
-                      strokeWidth={detailStrokeWidth}
-                      strokeOpacity={detailStrokeOpacity}
-                    />
-                  </>
-                )}
-              </>
-            )
-          })()}
-        </g>
-      ) : null}
-
+        {furniture.furnitureType === "bed" ? (
+          <g clipPath={`url(#${clipId})`}>
+            <rect
+              x={innerX}
+              y={minY + clamp(inset * 0.35, 3 * pixelScale, 10 * pixelScale)}
+              width={innerW}
+              height={clamp(Math.min(boxWidth, boxHeight) * 0.22, 10 * pixelScale, 22 * pixelScale)}
+              fill="hsl(var(--card))"
+              fillOpacity={0.9}
+            />
+            <line
+              x1={innerX}
+              y1={
+                minY +
+                clamp(inset * 0.35, 3 * pixelScale, 10 * pixelScale) +
+                clamp(Math.min(boxWidth, boxHeight) * 0.22, 10 * pixelScale, 22 * pixelScale)
+              }
+              x2={innerX + innerW}
+              y2={
+                minY +
+                clamp(inset * 0.35, 3 * pixelScale, 10 * pixelScale) +
+                clamp(Math.min(boxWidth, boxHeight) * 0.22, 10 * pixelScale, 22 * pixelScale)
+              }
+              stroke={strokeColor}
+              strokeWidth={detailStrokeWidth}
+              strokeOpacity={detailStrokeOpacity}
+            />
+          </g>
+        ) : null}
+      </g>
     </g>
   )
 }

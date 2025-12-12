@@ -11,6 +11,7 @@ import {
   deleteEntity,
   moveRoom,
   moveFurniture,
+  normalizeLayoutDocument,
 } from "@apartment-planner/shared"
 import { getLayoutByRoomCode, updateLayoutData } from "../lib/db"
 
@@ -36,7 +37,7 @@ export class LayoutHandler {
   }
 
   private updateEntities(entities: Entity[]) {
-    this.document = { ...this.document, entities }
+    this.document = normalizeLayoutDocument({ ...this.document, entities }).document
   }
 
   async onConnect(connection: Party.Connection) {
@@ -44,7 +45,11 @@ export class LayoutHandler {
       const layout = await getLayoutByRoomCode(this.room.id)
       if (layout) {
         this.layoutId = layout.id
-        this.document = layout.data as LayoutDocument
+        const normalized = normalizeLayoutDocument(layout.data as LayoutDocument)
+        this.document = normalized.document
+        if (normalized.didChange) {
+          await this.persistDocument()
+        }
       }
     }
 

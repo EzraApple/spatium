@@ -3,14 +3,18 @@ import { useNavigate } from "react-router-dom"
 import { Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { ConnectionStatus } from "./connection-status"
 import type { Layout } from "@apartment-planner/shared"
 
 interface LayoutHeaderProps {
   layout: Layout
   onNameChange: (name: string) => void
+  status: "connecting" | "connected" | "reconnecting" | "disconnected"
+  clientCount: number
+  myColor: string | null
 }
 
-export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
+export function LayoutHeader({ layout, onNameChange, status, clientCount, myColor }: LayoutHeaderProps) {
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(layout.name)
@@ -80,22 +84,25 @@ export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
         )}
       </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleCopy}
-        className={cn(
-          "gap-2 font-mono tracking-wider",
-          copied && "border-green-500 text-green-600"
-        )}
-      >
-        <span>{layout.roomCode}</span>
-        {copied ? (
-          <Check className="h-3.5 w-3.5" />
-        ) : (
-          <Copy className="h-3.5 w-3.5" />
-        )}
-      </Button>
+      <div className="flex items-center gap-3">
+        <ConnectionStatus status={status} clientCount={clientCount} myColor={myColor} />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCopy}
+          className={cn(
+            "gap-2 font-mono tracking-wider",
+            copied && "border-green-500 text-green-600"
+          )}
+        >
+          <span>{layout.roomCode}</span>
+          {copied ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
     </header>
   )
 }

@@ -63,7 +63,7 @@ export function LandingPage() {
             className="absolute -top-3 left-6 panel-neo bg-accent px-3 py-1 text-xs font-mono uppercase tracking-wider text-accent-foreground"
             aria-hidden="true"
           >
-            blueprint mode
+            build it
           </div>
 
           <div className="flex flex-col items-center gap-12">
