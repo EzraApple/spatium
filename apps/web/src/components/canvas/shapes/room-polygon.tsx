@@ -9,6 +9,7 @@ type RoomPolygonProps = {
   isSelected: boolean
   isDragging: boolean
   isColliding: boolean
+  isHovered: boolean
 }
 
 function getWallMidpoint(wall: WallSegment): Point {
@@ -47,6 +48,7 @@ export function RoomPolygon({
   isSelected,
   isDragging,
   isColliding,
+  isHovered,
 }: RoomPolygonProps) {
   const vertices = getRoomVertices(room)
   
@@ -63,16 +65,28 @@ export function RoomPolygon({
   const walls = getWallSegments(vertices, { x: 0, y: 0 })
 
   const strokeColor = isColliding
-    ? "hsl(0 84% 60%)"
+    ? "hsl(var(--destructive))"
     : isSelected
-      ? "hsl(221 83% 53%)"
-      : "hsl(222 47% 25%)"
+      ? "hsl(var(--primary))"
+      : "hsl(var(--border))"
+
+  const hasRoomColor = Boolean(room.color)
 
   const fillColor = isColliding
-    ? "hsl(0 84% 60% / 0.1)"
-    : isSelected
-      ? "hsl(221 83% 53% / 0.08)"
-      : "white"
+    ? "hsl(var(--destructive))"
+    : hasRoomColor
+      ? room.color!
+      : isSelected
+        ? "hsl(var(--primary))"
+        : "white"
+
+  const fillOpacity = isColliding
+    ? 0.1
+    : hasRoomColor
+      ? 1
+      : isSelected
+        ? 0.08
+        : 1
 
   const strokeWidth = (isSelected ? 2 : 1.5) * pixelScale
   const dimensionFontSize = 11 * pixelScale
@@ -80,12 +94,13 @@ export function RoomPolygon({
   return (
     <g
       transform={`translate(${translateX}, ${translateY})`}
-      style={isDragging ? { transition: "transform 60ms ease-out" } : undefined}
+      style={{ transition: "transform 60ms ease-out" }}
       className={cn(isDragging && "opacity-80")}
     >
       <path
         d={pathData}
         fill={fillColor}
+        fillOpacity={fillOpacity}
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         className="transition-colors"
@@ -111,7 +126,7 @@ export function RoomPolygon({
             y={labelY}
             textAnchor="middle"
             dominantBaseline="middle"
-            fill="hsl(222 47% 25%)"
+            fill="hsl(var(--foreground))"
             style={{
               fontFamily: "JetBrains Mono, monospace",
               fontSize: dimensionFontSize,

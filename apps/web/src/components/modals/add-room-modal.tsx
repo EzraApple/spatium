@@ -122,8 +122,8 @@ export function AddRoomModal({ open, onOpenChange, onAdd }: AddRoomModalProps) {
                 <Card
                   key={type}
                   className={cn(
-                    "cursor-pointer transition-all hover:border-primary/50",
-                    selectedShape === type && "border-primary ring-2 ring-primary/20"
+                    "cursor-pointer border-2 transition-colors hover:border-foreground/60",
+                    selectedShape === type && "border-foreground"
                   )}
                   onClick={() => setSelectedShape(type)}
                 >

@@ -329,12 +329,12 @@ export function EditorPage() {
   if (loading) {
     return (
       <div className="flex h-full w-full flex-col bg-blueprint">
-        <div className="flex h-14 items-center gap-3 border-b bg-white/80 px-4">
+        <div className="panel-neo flex h-14 items-center gap-3 bg-card px-4 rounded-none">
           <div className="skeleton-bar h-5 w-32 rounded" />
           <div className="skeleton-bar h-4 w-20 rounded" />
         </div>
         <div className="flex flex-1">
-          <div className="flex w-64 flex-col gap-3 border-r bg-white/60 p-4">
+          <div className="panel-neo flex w-64 flex-col gap-3 bg-sidebar p-4 rounded-none">
             <div className="skeleton-bar h-8 w-full rounded" />
             <div className="skeleton-bar h-6 w-3/4 rounded" />
             <div className="skeleton-bar h-6 w-1/2 rounded" />
@@ -464,7 +464,7 @@ export function EditorPage() {
                 }`}
                 style={{ right: zoomIndicatorRight }}
               >
-                <div className="rounded-md border bg-white/95 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                <div className="panel-neo bg-card px-2.5 py-1 text-xs font-medium text-foreground">
                   {zoomPercent}%
                 </div>
               </div>

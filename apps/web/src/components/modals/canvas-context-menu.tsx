@@ -57,11 +57,11 @@ export function CanvasContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[160px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+      className="fixed z-50 min-w-[180px] overflow-hidden rounded-lg border-2 border-foreground bg-card p-1 text-foreground shadow-[0_6px_0_hsl(var(--shadow-color))] animate-in fade-in-0 zoom-in-95"
       style={{ left: x, top: y }}
     >
       <button
-        className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+        className="focus-ring relative flex w-full cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
         onClick={() => {
           onAddRoom()
           onClose()
@@ -73,7 +73,7 @@ export function CanvasContextMenu({
       {targetRoom && (
         <>
           <button
-            className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            className="focus-ring relative flex w-full cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onAddFurniture(targetRoom.id)
               onClose()
@@ -83,7 +83,7 @@ export function CanvasContextMenu({
             Add Furniture to {targetRoom.name}
           </button>
           <button
-            className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            className="focus-ring relative flex w-full cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onAddDoor(targetRoom.id)
               onClose()

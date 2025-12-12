@@ -8,6 +8,7 @@ export const DEFAULT_FURNITURE_COLORS: Record<FurnitureEntity["furnitureType"], 
   "couch": "#4A4A4A",
   "l-shaped-couch": "#4A4A4A",
   "fridge": "#D3D3D3",
+  "bed": "#94A3B8",
 }
 
 export const DOOR_WIDTH_PRESETS = [

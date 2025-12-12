@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Trash2 } from "lucide-react"
+import { HexColorPicker } from "react-colorful"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { PropertySheet } from "./property-sheet"
 import type { RoomEntity, ShapeTemplate, Corner } from "@apartment-planner/shared"
 import { formatInchesForEditor, parseInchesFromEditor } from "@apartment-planner/shared"
 
@@ -15,6 +17,7 @@ type RoomPropertiesProps = {
 
 export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps) {
   const [name, setName] = useState("")
+  const [roomColor, setRoomColor] = useState("#FFFFFF")
   const [width, setWidth] = useState("")
   const [height, setHeight] = useState("")
   const [cutWidth, setCutWidth] = useState("")
@@ -22,9 +25,11 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
   const [bevelSize, setBevelSize] = useState("")
   const [bevelCorner, setBevelCorner] = useState<Corner>("top-right")
+  const focusedRoomRef = useRef<RoomEntity | null>(null)
 
   useEffect(() => {
     setName(room.name)
+    setRoomColor(room.color ?? "#FFFFFF")
     setWidth(formatInchesForEditor(room.shapeTemplate.width))
     setHeight(formatInchesForEditor(room.shapeTemplate.height))
 
@@ -40,13 +45,26 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
     }
   }, [room])
 
+  const handleFocusCapture = useCallback(() => {
+    focusedRoomRef.current = room
+  }, [room])
+
+  const handleColorChange = useCallback((newColor: string) => {
+    setRoomColor(newColor)
+    onUpdate({
+      ...room,
+      color: newColor,
+    })
+  }, [room, onUpdate])
+
   const handleSave = useCallback((overrides?: { cutCorner?: Corner; bevelCorner?: Corner }) => {
-    const widthEighths = parseInchesFromEditor(width) ?? room.shapeTemplate.width
-    const heightEighths = parseInchesFromEditor(height) ?? room.shapeTemplate.height
+    const target = focusedRoomRef.current ?? room
+    const widthEighths = parseInchesFromEditor(width) ?? target.shapeTemplate.width
+    const heightEighths = parseInchesFromEditor(height) ?? target.shapeTemplate.height
 
     let template: ShapeTemplate
 
-    switch (room.shapeTemplate.type) {
+    switch (target.shapeTemplate.type) {
       case "rectangle":
         template = { type: "rectangle", width: widthEighths, height: heightEighths }
         break
@@ -55,8 +73,8 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
           type: "l-shaped",
           width: widthEighths,
           height: heightEighths,
-          cutWidth: parseInchesFromEditor(cutWidth) ?? room.shapeTemplate.cutWidth,
-          cutHeight: parseInchesFromEditor(cutHeight) ?? room.shapeTemplate.cutHeight,
+          cutWidth: parseInchesFromEditor(cutWidth) ?? target.shapeTemplate.cutWidth,
+          cutHeight: parseInchesFromEditor(cutHeight) ?? target.shapeTemplate.cutHeight,
           cutCorner: overrides?.cutCorner ?? cutCorner,
         }
         break
@@ -65,30 +83,25 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
           type: "beveled",
           width: widthEighths,
           height: heightEighths,
-          bevelSize: parseInchesFromEditor(bevelSize) ?? room.shapeTemplate.bevelSize,
+          bevelSize: parseInchesFromEditor(bevelSize) ?? target.shapeTemplate.bevelSize,
           bevelCorner: overrides?.bevelCorner ?? bevelCorner,
         }
         break
     }
 
     onUpdate({
-      ...room,
+      ...target,
       name,
       shapeTemplate: template,
+      color: roomColor,
     })
-  }, [room, name, width, height, cutWidth, cutHeight, cutCorner, bevelSize, bevelCorner, onUpdate])
+  }, [room, name, width, height, cutWidth, cutHeight, cutCorner, bevelSize, bevelCorner, roomColor, onUpdate])
 
   const handleBlur = () => handleSave()
 
   return (
-    <div className="absolute right-0 top-0 bottom-0 w-64 border-l border-sidebar-border bg-sidebar shadow-lg animate-in slide-in-from-right-4 duration-200 cursor-hidden flex flex-col">
-      <div className="p-4 pb-0">
-        <h3 className="text-sm font-semibold text-sidebar-foreground mb-1">Room</h3>
-      </div>
-
-      <Separator className="my-4" />
-
-      <div className="flex-1 overflow-y-auto px-4 space-y-4">
+    <PropertySheet title="Room">
+      <div onFocusCapture={handleFocusCapture} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="prop-name">Name</Label>
           <Input
@@ -97,6 +110,23 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
             onChange={(e) => setName(e.target.value)}
             onBlur={handleBlur}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Color</Label>
+          <div className="flex flex-col gap-2">
+            <HexColorPicker
+              color={roomColor}
+              onChange={handleColorChange}
+              style={{ width: "100%", height: 150 }}
+            />
+            <Input
+              value={roomColor}
+              onChange={(e) => handleColorChange(e.target.value)}
+              placeholder="#FFFFFF"
+              className="font-mono text-xs"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -215,7 +245,7 @@ export function RoomProperties({ room, onUpdate, onDelete }: RoomPropertiesProps
           Delete Room
         </Button>
       </div>
-    </div>
+    </PropertySheet>
   )
 }
 

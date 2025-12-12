@@ -45,11 +45,11 @@ export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card p-4 shadow-sm">
+    <header className="panel-neo flex h-14 items-center justify-between bg-card px-4 rounded-none border-0 border-b-2">
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate("/")}
-          className="rounded-md p-1 transition-colors hover:bg-muted"
+          className="focus-ring rounded-md p-1 transition-colors hover:bg-muted"
         >
           <img src="/favicon-32x32.png" alt="Spatium" className="h-8 w-8" />
         </button>
@@ -68,12 +68,12 @@ export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
                 setIsEditing(false)
               }
             }}
-            className="h-8 rounded-md border border-input bg-transparent px-2 text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-ring"
+            className="focus-ring h-10 w-[min(420px,40vw)] rounded-lg border-2 border-input bg-transparent px-2 text-lg font-semibold focus-visible:border-foreground"
           />
         ) : (
           <button
             onClick={() => setIsEditing(true)}
-            className="rounded-md px-2 py-1 text-lg font-semibold text-foreground transition-colors hover:bg-muted"
+            className="focus-ring rounded-md px-2 py-1 text-lg font-semibold text-foreground transition-colors hover:bg-muted"
           >
             {layout.name}
           </button>
@@ -85,7 +85,7 @@ export function LayoutHeader({ layout, onNameChange }: LayoutHeaderProps) {
         size="sm"
         onClick={handleCopy}
         className={cn(
-          "gap-2 font-mono tracking-wider transition-all",
+          "gap-2 font-mono tracking-wider",
           copied && "border-green-500 text-green-600"
         )}
       >

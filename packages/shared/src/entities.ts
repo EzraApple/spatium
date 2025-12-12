@@ -36,9 +36,18 @@ export type RoomEntity = {
   name: string
   position: Point
   shapeTemplate: ShapeTemplate
+  color?: string
 }
 
-export type FurnitureType = "square-table" | "circle-table" | "rectangle-desk" | "l-shaped-desk" | "couch" | "l-shaped-couch" | "fridge"
+export type FurnitureType =
+  | "square-table"
+  | "circle-table"
+  | "rectangle-desk"
+  | "l-shaped-desk"
+  | "couch"
+  | "l-shaped-couch"
+  | "fridge"
+  | "bed"
 
 export type RectangleFurnitureTemplate = {
   type: "rectangle"
@@ -74,6 +83,7 @@ export type FurnitureEntity = {
   position: Point
   shapeTemplate: FurnitureShapeTemplate
   color?: string
+  rotation?: 0 | 90 | 180 | 270
 }
 
 export type HingeSide = "left" | "right"

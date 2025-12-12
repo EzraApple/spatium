@@ -6,38 +6,41 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
+    --background: 214 70% 97%;
     --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
+    --card: 214 65% 99%;
     --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
+    --popover: 214 65% 99%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
+    --primary: 220 65% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 50% 93%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
+    --muted: 214 45% 94%;
+    --muted-foreground: 215 18% 40%;
+    --accent: 42 95% 92%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-    --radius: 0.5rem;
+    --border: 222 22% 28%;
+    --input: 222 22% 28%;
+    --ring: 42 96% 55%;
+    --radius: 0.375rem;
+    --border-width: 2px;
+    --shadow-offset: 3px;
+    --shadow-color: 222 47% 11%;
 
     --blueprint: 214 100% 97%;
     --blueprint-light: 214 100% 99%;
     --blueprint-grid: 214 40% 88%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 214 60% 95%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 220 65% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 55% 90%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 222 22% 28%;
+    --sidebar-ring: 42 96% 55%;
   }
 
   * {
@@ -56,6 +59,64 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+@layer components {
+  .shadow-panel {
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.06), 0 1px 3px hsl(var(--foreground) / 0.08);
+  }
+
+  .panel-neo {
+    border-width: var(--border-width);
+    border-style: solid;
+    box-shadow: 0 var(--shadow-offset) 0 hsl(var(--shadow-color));
+    border-radius: var(--radius);
+  }
+
+  .btn-neo {
+    border-width: var(--border-width);
+    border-style: solid;
+    box-shadow: 0 var(--shadow-offset) 0 hsl(var(--shadow-color));
+    transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 140ms ease-out, color 140ms ease-out;
+    transform: translateY(0);
+  }
+
+  .btn-neo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 calc(var(--shadow-offset) + 1px) 0 hsl(var(--shadow-color));
+  }
+
+  .btn-neo:active {
+    transform: translateY(1px);
+    box-shadow: 0 calc(var(--shadow-offset) - 1px) 0 hsl(var(--shadow-color));
+  }
+
+  .btn-neo:disabled {
+    transform: translateY(0);
+    box-shadow: 0 var(--shadow-offset) 0 hsl(var(--shadow-color));
+  }
+
+  .input-neo {
+    border-width: var(--border-width);
+    border-style: solid;
+    box-shadow: 0 var(--shadow-offset) 0 hsl(var(--shadow-color));
+    transition: box-shadow 120ms ease-out, border-color 120ms ease-out, background-color 120ms ease-out;
+  }
+
+  .input-neo:focus-visible {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 calc(var(--shadow-offset) + 1px) 0 hsl(var(--ring));
+  }
+
+  .input-neo:disabled {
+    box-shadow: none;
   }
 }
 
@@ -122,6 +183,19 @@ body,
   background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
 }
 
+@keyframes blueprint-drift {
+  0% {
+    background-position: 0 0, 0 0, 0 0, 0 0;
+  }
+  100% {
+    background-position: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+  }
+}
+
+.grid-blueprint-drift {
+  animation: blueprint-drift 18s linear infinite;
+}
+
 @keyframes grid-fade-in {
   0% {
     opacity: 0;
@@ -139,6 +213,142 @@ body,
   }
   100% {
     background-position: 200% 0;
+  }
+}
+
+.route-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: route-transition-fade 2.5s ease-out forwards;
+}
+
+.route-transition-content {
+  position: relative;
+  z-index: 2;
+  padding: 1.5rem;
+}
+
+.route-transition-gradient {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at 50% 40%, hsl(var(--accent) / 0.25), transparent 55%);
+}
+
+.route-transition-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  animation: route-transition-grid-reveal 2.5s linear forwards;
+  will-change: clip-path;
+}
+
+.route-transition-bar {
+  position: relative;
+  height: 14px;
+  width: min(420px, 74vw);
+  overflow: hidden;
+}
+
+.route-transition-bar-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: route-transition-bar-fill 2.5s linear forwards;
+}
+
+.route-transition-bar-scanner {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  left: -120px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--ring) / 0.55) 50%,
+    transparent 100%
+  );
+  mix-blend-mode: multiply;
+  animation: route-transition-scanner 1s ease-in-out infinite;
+}
+
+@keyframes route-transition-grid-reveal {
+  0% {
+    clip-path: circle(0% at 50% 50%);
+    opacity: 0.25;
+  }
+  35% {
+    clip-path: circle(10% at 50% 50%);
+    opacity: 0.5;
+  }
+  80% {
+    clip-path: circle(120% at 50% 50%);
+    opacity: 0.9;
+  }
+  100% {
+    clip-path: circle(160% at 50% 50%);
+    opacity: 0.75;
+  }
+}
+
+@keyframes route-transition-bar-fill {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes route-transition-scanner {
+  0% {
+    left: -120px;
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    left: calc(100% + 120px);
+    opacity: 0.25;
+  }
+}
+
+@keyframes route-transition-fade {
+  0% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-transition-overlay {
+    animation: none;
+  }
+  .route-transition-grid {
+    animation: none;
+    clip-path: none;
+    opacity: 0.75;
+  }
+  .route-transition-bar-fill {
+    animation: none;
+    transform: scaleX(1);
+  }
+  .route-transition-bar-scanner {
+    animation: none;
+    opacity: 0;
   }
 }
 

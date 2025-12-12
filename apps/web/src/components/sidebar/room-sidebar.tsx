@@ -16,6 +16,12 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { getRoomShapeIcon } from "./room-shape-icons"
 import { cn } from "@/lib/utils"
@@ -60,9 +66,7 @@ export function RoomSidebar({
 }: RoomSidebarProps) {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
-  const [addMenuRoomId, setAddMenuRoomId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const addMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (editingRoomId && inputRef.current) {
@@ -93,29 +97,6 @@ export function RoomSidebar({
     }
   }
 
-  useEffect(() => {
-    if (!addMenuRoomId) return
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-        setAddMenuRoomId(null)
-      }
-    }
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setAddMenuRoomId(null)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    document.addEventListener("keydown", handleEscape)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-      document.removeEventListener("keydown", handleEscape)
-    }
-  }, [addMenuRoomId])
-
   const getFurnitureByRoom = (roomId: string) => {
     return furniture.filter((f) => f.roomId === roomId)
   }
@@ -125,7 +106,7 @@ export function RoomSidebar({
   }
 
   return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border cursor-hidden">
+    <Sidebar collapsible="none" className="border-r-2 border-sidebar-border cursor-hidden">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Rooms</SidebarGroupLabel>
@@ -142,6 +123,7 @@ export function RoomSidebar({
               {rooms.map((room) => {
                 const Icon = getRoomShapeIcon(room.shapeTemplate.type)
                 const isExpanded = expandedRoomIds.has(room.id)
+                const isRoomSelected = selectedType === "room" && selectedId === room.id
                 const roomFurniture = getFurnitureByRoom(room.id)
                 const roomDoors = getDoorsByRoom(room.id)
                 const hasContents = roomFurniture.length > 0 || roomDoors.length > 0
@@ -149,9 +131,13 @@ export function RoomSidebar({
                 return (
                   <SidebarMenuItem key={room.id}>
                     <SidebarMenuButton
-                      isActive={selectedType === "room" && selectedId === room.id}
+                      isActive={isRoomSelected}
                       onClick={() => onToggleExpanded(room.id)}
                       onDoubleClick={() => handleDoubleClick(room)}
+                      className={cn(
+                        isRoomSelected &&
+                          "relative after:absolute after:left-0 after:top-1 after:bottom-1 after:w-[3px] after:rounded-r-sm after:bg-ring"
+                      )}
                     >
                       <ChevronRight
                         className={cn(
@@ -174,49 +160,39 @@ export function RoomSidebar({
                         <span className="truncate">{room.name}</span>
                       )}
                     </SidebarMenuButton>
-                    <SidebarMenuAction
-                      onClick={() => setAddMenuRoomId(addMenuRoomId === room.id ? null : room.id)}
-                      title="Add to room"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </SidebarMenuAction>
-                    {addMenuRoomId === room.id && (
-                      <div
-                        ref={addMenuRef}
-                        className="absolute right-1 top-8 z-50 min-w-[140px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
-                      >
-                        <button
-                          className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => {
-                            onAddFurniture(room.id)
-                            setAddMenuRoomId(null)
-                          }}
-                        >
-                          <Armchair className="h-4 w-4" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <SidebarMenuAction title="Add to room">
+                          <Plus className="h-4 w-4" />
+                        </SidebarMenuAction>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="right" align="start">
+                        <DropdownMenuItem onSelect={() => onAddFurniture(room.id)}>
+                          <Armchair />
                           Furniture
-                        </button>
-                        <button
-                          className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => {
-                            onAddDoor(room.id)
-                            setAddMenuRoomId(null)
-                          }}
-                        >
-                          <DoorOpen className="h-4 w-4" />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => onAddDoor(room.id)}>
+                          <DoorOpen />
                           Door
-                        </button>
-                      </div>
-                    )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {isExpanded && hasContents && (
                       <SidebarMenuSub>
                         {roomFurniture.map((f) => {
                           const FurnitureIcon = getFurnitureIcon(f.furnitureType)
+                          const isFurnitureSelected =
+                            selectedType === "furniture" && selectedId === f.id
                           return (
                             <SidebarMenuSubItem key={f.id}>
                               <SidebarMenuSubButton
-                                isActive={selectedType === "furniture" && selectedId === f.id}
+                                isActive={isFurnitureSelected}
                                 onClick={() => onSelectFurniture(f.id)}
+                                className={cn(
+                                  isFurnitureSelected &&
+                                    "relative after:absolute after:left-0 after:top-1 after:bottom-1 after:w-[3px] after:rounded-r-sm after:bg-ring"
+                                )}
                               >
                                 <FurnitureIcon className="size-3" />
                                 <span className="truncate">{f.name}</span>
@@ -224,17 +200,24 @@ export function RoomSidebar({
                             </SidebarMenuSubItem>
                           )
                         })}
-                        {roomDoors.map((d) => (
-                          <SidebarMenuSubItem key={d.id}>
-                            <SidebarMenuSubButton
-                              isActive={selectedType === "door" && selectedId === d.id}
-                              onClick={() => onSelectDoor(d.id)}
-                            >
-                              <DoorOpen className="size-3" />
-                              <span className="truncate">{d.name}</span>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
+                        {roomDoors.map((d) => {
+                          const isDoorSelected = selectedType === "door" && selectedId === d.id
+                          return (
+                            <SidebarMenuSubItem key={d.id}>
+                              <SidebarMenuSubButton
+                                isActive={isDoorSelected}
+                                onClick={() => onSelectDoor(d.id)}
+                                className={cn(
+                                  isDoorSelected &&
+                                    "relative after:absolute after:left-0 after:top-1 after:bottom-1 after:w-[3px] after:rounded-r-sm after:bg-ring"
+                                )}
+                              >
+                                <DoorOpen className="size-3" />
+                                <span className="truncate">{d.name}</span>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
                       </SidebarMenuSub>
                     )}
 

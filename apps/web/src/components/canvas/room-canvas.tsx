@@ -81,6 +81,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState<Point | null>(null)
   const [cursorMode, setCursorMode] = useState<CursorMode>("grab")
+  const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null)
   const [ghostDoor, setGhostDoor] = useState<{
     wallStart: Point
     wallEnd: Point
@@ -201,11 +202,13 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
   const updateCursorMode = useCallback(
     (clientX: number, clientY: number) => {
       if (placingDoor) {
+        setHoveredRoomId(null)
         setCursorMode("crosshair")
         return
       }
 
       if (isPanning) {
+        setHoveredRoomId(null)
         setCursorMode("grabbing")
         return
       }
@@ -215,6 +218,8 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       
       const hitFurniture = hitTestFurniture(worldPos)
       const hitRoom = hitTestRoom(worldPos)
+
+      setHoveredRoomId(hitRoom?.id ?? null)
 
       if (hitFurniture || hitRoom) {
         setCursorMode("pointer")
@@ -460,7 +465,10 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={(e) => {
+        setHoveredRoomId(null)
+        handleMouseUp(e)
+      }}
       onWheel={handleWheel}
       onClick={handleClick}
       onContextMenu={handleContextMenuEvent}
@@ -511,6 +519,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
           isSelected={selectedType === "room" && selectedId === room.id}
           isDragging={draggingRoomId === room.id}
           isColliding={getRoomCollisionState(room)}
+          isHovered={hoveredRoomId === room.id}
         />
       ))}
 

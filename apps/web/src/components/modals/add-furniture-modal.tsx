@@ -10,17 +10,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { FurnitureType, FurnitureShapeTemplate, Corner } from "@apartment-planner/shared"
 import { formatInchesForEditor, parseInchesFromEditor, inchesToEighths } from "@apartment-planner/shared"
-import { Circle, Square, RectangleHorizontal, Refrigerator } from "lucide-react"
+import { Circle, Square, RectangleHorizontal, Refrigerator, BedDouble } from "lucide-react"
 import { LShapedRoomIcon } from "@/components/sidebar/room-shape-icons"
 
 type FurnitureOption = {
   type: FurnitureType
   label: string
   icon: React.ComponentType<{ className?: string }>
-  category: "table" | "desk" | "seating" | "appliance"
+  category: "table" | "desk" | "seating" | "appliance" | "sleeping"
 }
 
 function CouchIcon({ className }: { className?: string }) {
@@ -42,6 +49,7 @@ const FURNITURE_OPTIONS: FurnitureOption[] = [
   { type: "couch", label: "Couch", icon: CouchIcon, category: "seating" },
   { type: "l-shaped-couch", label: "L-Shaped Couch", icon: LShapedRoomIcon, category: "seating" },
   { type: "fridge", label: "Fridge", icon: Refrigerator, category: "appliance" },
+  { type: "bed", label: "Bed", icon: BedDouble, category: "sleeping" },
 ]
 
 const DEFAULT_TABLE_SIZE = inchesToEighths(36)
@@ -50,6 +58,8 @@ const DEFAULT_DESK_HEIGHT = inchesToEighths(30)
 const DEFAULT_COUCH_WIDTH = inchesToEighths(72)
 const DEFAULT_COUCH_HEIGHT = inchesToEighths(36)
 const DEFAULT_FRIDGE_SIZE = inchesToEighths(36)
+const DEFAULT_BED_WIDTH = inchesToEighths(60)
+const DEFAULT_BED_HEIGHT = inchesToEighths(80)
 
 const DEFAULT_L_DESK_LENGTH = inchesToEighths(60)
 const DEFAULT_L_DESK_WIDTH = inchesToEighths(48)
@@ -58,6 +68,15 @@ const DEFAULT_L_DESK_DEPTH = inchesToEighths(24)
 const DEFAULT_L_COUCH_LENGTH = inchesToEighths(84)
 const DEFAULT_L_COUCH_WIDTH = inchesToEighths(84)
 const DEFAULT_L_COUCH_DEPTH = inchesToEighths(36)
+
+const BED_SIZE_PRESETS = [
+  { value: "twin", label: 'Twin (38" × 75")', widthIn: 38, heightIn: 75 },
+  { value: "twin-xl", label: 'Twin XL (38" × 80")', widthIn: 38, heightIn: 80 },
+  { value: "full", label: 'Full (54" × 75")', widthIn: 54, heightIn: 75 },
+  { value: "queen", label: 'Queen (60" × 80")', widthIn: 60, heightIn: 80 },
+  { value: "king", label: 'King (76" × 80")', widthIn: 76, heightIn: 80 },
+  { value: "cal-king", label: 'Cal King (72" × 84")', widthIn: 72, heightIn: 84 },
+] as const
 
 type AddFurnitureModalProps = {
   open: boolean
@@ -73,6 +92,7 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
   const [height, setHeight] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE))
   const [radius, setRadius] = useState(formatInchesForEditor(DEFAULT_TABLE_SIZE / 2))
   const [cutCorner, setCutCorner] = useState<Corner>("top-right")
+  const [bedPreset, setBedPreset] = useState<(typeof BED_SIZE_PRESETS)[number]["value"]>("queen")
 
   const [lLength, setLLength] = useState(formatInchesForEditor(DEFAULT_L_DESK_LENGTH))
   const [lWidth, setLWidth] = useState(formatInchesForEditor(DEFAULT_L_DESK_WIDTH))
@@ -108,6 +128,10 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
       } else if (option.category === "appliance") {
         setWidth(formatInchesForEditor(DEFAULT_FRIDGE_SIZE))
         setHeight(formatInchesForEditor(DEFAULT_FRIDGE_SIZE))
+      } else if (option.category === "sleeping") {
+        setBedPreset("queen")
+        setWidth(formatInchesForEditor(DEFAULT_BED_WIDTH))
+        setHeight(formatInchesForEditor(DEFAULT_BED_HEIGHT))
       }
     }
   }, [selectedType])
@@ -122,6 +146,7 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
     setLLength(formatInchesForEditor(DEFAULT_L_DESK_LENGTH))
     setLWidth(formatInchesForEditor(DEFAULT_L_DESK_WIDTH))
     setLDepth(formatInchesForEditor(DEFAULT_L_DESK_DEPTH))
+    setBedPreset("queen")
   }
 
   const handleAdd = () => {
@@ -192,6 +217,13 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
           height: parseInchesFromEditor(height) ?? DEFAULT_FRIDGE_SIZE,
         }
         break
+      case "bed":
+        template = {
+          type: "rectangle",
+          width: parseInchesFromEditor(width) ?? DEFAULT_BED_WIDTH,
+          height: parseInchesFromEditor(height) ?? DEFAULT_BED_HEIGHT,
+        }
+        break
     }
 
     onAdd(roomId, name, selectedType, template)
@@ -201,6 +233,7 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
 
   const isCircle = selectedType === "circle-table"
   const isLShaped = selectedType === "l-shaped-desk" || selectedType === "l-shaped-couch"
+  const isBed = selectedType === "bed"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,8 +260,8 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
                 <Card
                   key={type}
                   className={cn(
-                    "cursor-pointer transition-all hover:border-primary/50",
-                    selectedType === type && "border-primary ring-2 ring-primary/20"
+                    "cursor-pointer border-2 transition-colors hover:border-foreground/60",
+                    selectedType === type && "border-foreground"
                   )}
                   onClick={() => setSelectedType(type)}
                 >
@@ -252,6 +285,46 @@ export function AddFurnitureModal({ open, roomId, onOpenChange, onAdd }: AddFurn
                   placeholder="18"
                 />
               </div>
+            )}
+
+            {isBed && (
+              <>
+                <div className="space-y-2">
+                  <Label>Bed size</Label>
+                  <Select
+                    value={bedPreset}
+                    onValueChange={(value) => {
+                      const preset = BED_SIZE_PRESETS.find((p) => p.value === value)
+                      if (!preset) return
+                      setBedPreset(preset.value)
+                      setWidth(String(preset.widthIn))
+                      setHeight(String(preset.heightIn))
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a bed size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BED_SIZE_PRESETS.map((preset) => (
+                        <SelectItem key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setWidth(height)
+                    setHeight(width)
+                  }}
+                >
+                  Rotate 90°
+                </Button>
+              </>
             )}
 
             {!isCircle && !isLShaped && (

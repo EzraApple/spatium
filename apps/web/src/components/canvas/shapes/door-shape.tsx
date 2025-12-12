@@ -63,12 +63,11 @@ export function DoorShape({
   const swingFill = isSelected ? SWING_COLOR_SELECTED : SWING_COLOR
 
   const hingeRadius = 3 * pixelScale
-  const shouldTransition = isDragging || isRoomDragging
 
   return (
     <g
       transform={`translate(${translateX}, ${translateY})`}
-      style={shouldTransition ? { transition: "transform 60ms ease-out", pointerEvents: onMouseDown ? "all" : "none" } : { pointerEvents: onMouseDown ? "all" : "none" }}
+      style={{ transition: "transform 60ms ease-out", pointerEvents: onMouseDown ? "all" : "none" }}
       className={cn(
         isGhost && "opacity-60",
         isDragging && "opacity-80",
