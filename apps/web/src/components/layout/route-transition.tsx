@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation } from "react-router-dom"
 
-const DURATION_MS = 2500
+const DURATION_MS = 1750
 
 function isEditRoute(pathname: string) {
   return /^\/edit\/[^/]+$/.test(pathname)
@@ -10,7 +10,6 @@ function isEditRoute(pathname: string) {
 export function RouteTransition() {
   const { pathname } = useLocation()
   const prevPathnameRef = useRef<string | null>(null)
-  const timeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const [isActive, setIsActive] = useState(false)
   const [runToken, setRunToken] = useState(0)
 
@@ -23,26 +22,19 @@ export function RouteTransition() {
 
     if (!shouldPlay) return
 
-    if (timeoutRef.current) {
-      window.clearTimeout(timeoutRef.current)
-    }
-
     setRunToken((t) => t + 1)
     setIsActive(true)
-
-    timeoutRef.current = window.setTimeout(() => {
-      setIsActive(false)
-      timeoutRef.current = null
-    }, DURATION_MS)
   }, [pathname])
 
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
+    if (!isActive) return
+
+    const timeout = window.setTimeout(() => {
+      setIsActive(false)
+    }, DURATION_MS)
+
+    return () => window.clearTimeout(timeout)
+  }, [isActive, runToken])
 
   if (!isActive) return null
 
@@ -78,4 +70,5 @@ export function RouteTransition() {
     </div>
   )
 }
+
 

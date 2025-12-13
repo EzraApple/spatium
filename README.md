@@ -60,3 +60,6 @@ After deploying PartyKit, update the production host in `apps/web/src/lib/env.ts
 | `pnpm build` | Build all apps |
 | `pnpm typecheck` | Type check all packages |
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -124,6 +124,7 @@ export function LandingPage() {
                   />
                   <Button
                     variant="secondary"
+                    size="lg"
                     onClick={handleJoin}
                     disabled={isJoining || roomCode.length !== 6}
                   >

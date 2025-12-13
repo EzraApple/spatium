@@ -224,7 +224,8 @@ body,
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  animation: route-transition-fade 2.5s ease-out forwards;
+  pointer-events: none;
+  animation: route-transition-fade 1.75s ease-out forwards;
 }
 
 .route-transition-content {
@@ -260,7 +261,7 @@ body,
   inset: 0;
   transform-origin: left center;
   transform: scaleX(0);
-  animation: route-transition-bar-fill 2.5s linear forwards;
+  animation: route-transition-bar-fill 1.75s linear forwards;
 }
 
 .route-transition-bar-scanner {
