@@ -1,6 +1,12 @@
 # Spatium
 
-Collaborative apartment layout editor with real-time cursor presence. Currently in MVP stage demonstrating real-time infrastructure.
+A lightweight, real-time collaborative apartment layout editor.
+
+## The Story
+
+This started as a bit of a joke. I was moving and my roommate was on the other side of the country doing random stuff—we needed to figure out our apartment layout but couldn't exactly stand in the same room pointing at where the couch should go. So I threw this together so we could plan it out in real-time.
+
+The first version was scrappy and just for us. But once it worked, I realized this could actually be useful to other people in the same situation. So I cleaned it up and made it into a proper little tool. No accounts, no bloat—just share a link and start planning together.
 
 ## Architecture
 
@@ -21,44 +27,6 @@ pnpm dev
 ```
 
 Open `http://localhost:5173` in multiple browser tabs to see cursor sync in action.
-
-## Deployment
-
-### PartyKit (WebSocket Server)
-
-PartyKit hosts the WebSocket server on their infrastructure.
-
-```bash
-# Authenticate with PartyKit (one-time)
-npx partykit login
-
-# Deploy from the party app
-cd apps/party
-pnpm deploy
-```
-
-The server will be live at `spatium-party.partykit.dev` (or whatever name is set in `partykit.json`).
-
-### Vercel (Web Frontend)
-
-1. Push your code to GitHub
-2. Import the repo in Vercel
-3. Configure the project:
-   - **Root Directory**: `apps/web`
-   - **Build Command**: `cd ../.. && pnpm build --filter web`
-   - **Install Command**: `cd ../.. && pnpm install`
-   - **Output Directory**: `dist`
-4. Deploy
-
-After deploying PartyKit, update the production host in `apps/web/src/lib/env.ts` if the URL differs from `spatium-party.partykit.dev`.
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start all apps in development mode |
-| `pnpm build` | Build all apps |
-| `pnpm typecheck` | Type check all packages |
 
 ## License
 
