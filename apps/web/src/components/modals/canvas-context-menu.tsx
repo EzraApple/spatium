@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react"
-import { Home, Armchair, DoorOpen } from "lucide-react"
-import type { RoomEntity } from "@apartment-planner/shared"
+import { Home, Armchair, DoorOpen, Package } from "lucide-react"
+import type { RoomEntity, FurnitureEntity } from "@apartment-planner/shared"
 
 type CanvasContextMenuProps = {
   x: number
   y: number
   targetRoom: RoomEntity | null
+  targetFurniture: FurnitureEntity | null
   onAddRoom: () => void
   onAddFurniture: (roomId: string) => void
   onAddDoor: (roomId: string) => void
+  onPickUpFurniture: (furnitureId: string) => void
   onClose: () => void
 }
 
@@ -16,9 +18,11 @@ export function CanvasContextMenu({
   x,
   y,
   targetRoom,
+  targetFurniture,
   onAddRoom,
   onAddFurniture,
   onAddDoor,
+  onPickUpFurniture,
   onClose,
 }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -70,7 +74,7 @@ export function CanvasContextMenu({
         <Home className="h-4 w-4" />
         Add Room
       </button>
-      {targetRoom && (
+      {targetRoom && !targetFurniture && (
         <>
           <button
             className="focus-ring relative flex w-full cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
@@ -93,6 +97,18 @@ export function CanvasContextMenu({
             Add Door to {targetRoom.name}
           </button>
         </>
+      )}
+      {targetFurniture && (
+        <button
+          className="focus-ring relative flex w-full cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          onClick={() => {
+            onPickUpFurniture(targetFurniture.id)
+            onClose()
+          }}
+        >
+          <Package className="h-4 w-4" />
+          Pick Up {targetFurniture.name}
+        </button>
       )}
     </div>
   )

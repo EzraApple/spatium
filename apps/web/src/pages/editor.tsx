@@ -6,6 +6,7 @@ import { RoomSidebar } from "@/components/sidebar"
 import { RoomCanvas, type CursorMode, type RoomCanvasHandle } from "@/components/canvas"
 import { PropertyPanel } from "@/components/property-panel"
 import { AddRoomModal, AddFurnitureModal, CanvasContextMenu, ShortcutsModal } from "@/components/modals"
+import { InventorySheet, SHEET_HEIGHT } from "@/components/inventory"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { usePartySocket } from "@/hooks/use-party-socket"
 import { useCursorSync } from "@/hooks/use-cursor-sync"
@@ -14,11 +15,13 @@ import { useCanvasInteraction } from "@/hooks/use-canvas-interaction"
 import { useEditorActions } from "@/hooks/use-editor-actions"
 import { useClipboard } from "@/hooks/use-clipboard"
 import { useKeyboardShortcuts, getNextRotation } from "@/hooks/use-keyboard-shortcuts"
+import { useInventoryDrag } from "@/hooks/use-inventory-drag"
 import { getLayout, updateLayoutName } from "@/lib/api"
 import { addVisitedRoom } from "@/lib/visited-rooms"
 import type {
   Layout,
   RoomEntity,
+  FurnitureEntity,
   ShapeTemplate,
   FurnitureType,
   FurnitureShapeTemplate,
@@ -47,6 +50,7 @@ export function EditorPage() {
     x: number
     y: number
     targetRoom: RoomEntity | null
+    targetFurniture: FurnitureEntity | null
   } | null>(null)
   const [cursorMode, setCursorMode] = useState<CursorMode>("grab")
   const [isOverCanvas, setIsOverCanvas] = useState(false)
@@ -80,6 +84,7 @@ export function EditorPage() {
   const {
     rooms,
     furniture,
+    inventoryFurniture,
     doors,
     addRoom,
     updateRoom,
@@ -89,11 +94,13 @@ export function EditorPage() {
     addFurniture,
     updateFurniture,
     deleteFurniture,
+    moveFurniture,
     moveFurnitureLocal,
     moveFurnitureSync,
     addDoor,
     updateDoor,
     deleteDoor,
+    moveDoor,
     moveDoorLocal,
     moveDoorSync,
   } = useLayoutSync(socket)
@@ -136,9 +143,11 @@ export function EditorPage() {
     deleteRoom: handleDeleteRoom,
     deleteFurniture: handleDeleteFurniture,
     deleteDoor: handleDeleteDoor,
+    pickUpFurniture,
     getDefaultDoorPlacement,
   } = useEditorActions({
     rooms,
+    furniture,
     doors,
     addRoom,
     updateRoom,
@@ -146,6 +155,7 @@ export function EditorPage() {
     addFurniture,
     updateFurniture,
     deleteFurniture,
+    moveFurniture,
     addDoor,
     updateDoor,
     deleteDoor,
@@ -163,6 +173,21 @@ export function EditorPage() {
     addFurniture,
     addDoor,
     select,
+  })
+
+  const {
+    isDragging: isInventoryDragging,
+    draggingFurnitureId: inventoryDraggingId,
+    dragState: inventoryDragState,
+    startDrag: startInventoryDrag,
+  } = useInventoryDrag({
+    inventoryFurniture,
+    furniture,
+    rooms,
+    moveFurniture,
+    moveFurnitureLocal,
+    moveFurnitureSync,
+    screenToWorld,
   })
 
   const selectedFurnitureForKeyboard = selectedType === "furniture" && selectedId
@@ -211,6 +236,7 @@ export function EditorPage() {
     deleteSelected: handleDeleteSelected,
     deselect,
     rotateFurniture: handleRotateFurniture,
+    pickUpFurniture,
     zoomIn: handleZoomIn,
     zoomOut: handleZoomOut,
     openShortcutsModal: handleOpenShortcutsModal,
@@ -389,6 +415,10 @@ export function EditorPage() {
     return doors.find((d) => d.id === selectedId) ?? null
   }, [selectedType, selectedId, doors])
 
+  const handleCanvasMouseUp = useCallback(() => {
+    handleMouseUp()
+  }, [handleMouseUp])
+
   const handleCanvasClick = () => {
     if (!isDragging) {
       deselect()
@@ -396,8 +426,8 @@ export function EditorPage() {
     setContextMenu(null)
   }
 
-  const handleContextMenu = (x: number, y: number, targetRoom: RoomEntity | null) => {
-    setContextMenu({ x, y, targetRoom })
+  const handleContextMenu = (x: number, y: number, targetRoom: RoomEntity | null, targetFurniture: FurnitureEntity | null = null) => {
+    setContextMenu({ x, y, targetRoom, targetFurniture })
   }
 
   if (loading) {
@@ -495,7 +525,7 @@ export function EditorPage() {
               draggingFurniturePendingRoomId={draggingFurniturePendingRoomId}
               placingDoor={placingDoor}
               onMouseDown={handleMouseDown}
-              onMouseUp={handleMouseUp}
+              onMouseUp={handleCanvasMouseUp}
               onDragUpdate={updateDragPosition}
               onCanvasClick={handleCanvasClick}
               onContextMenu={handleContextMenu}
@@ -512,6 +542,7 @@ export function EditorPage() {
                 x={contextMenu.x}
                 y={contextMenu.y}
                 targetRoom={contextMenu.targetRoom}
+                targetFurniture={contextMenu.targetFurniture}
                 onAddRoom={() => {
                   const worldPos = roomCanvasRef.current?.screenToWorld(contextMenu.x, contextMenu.y)
                   if (worldPos) setRoomSpawnPosition(worldPos)
@@ -519,6 +550,7 @@ export function EditorPage() {
                 }}
                 onAddFurniture={handleOpenAddFurnitureModal}
                 onAddDoor={handleStartDoorPlacement}
+                onPickUpFurniture={pickUpFurniture}
                 onClose={() => setContextMenu(null)}
               />
             )}
@@ -554,10 +586,18 @@ export function EditorPage() {
             onDoorUpdate={updateDoor}
             onRoomDelete={handleDeleteRoom}
             onFurnitureDelete={handleDeleteFurniture}
+            onFurniturePickUp={pickUpFurniture}
             onDoorDelete={handleDeleteDoor}
+          />
+
+          <InventorySheet
+            furniture={inventoryFurniture}
+            draggingFurnitureId={inventoryDraggingId}
+            onDragStart={startInventoryDrag}
           />
         </SidebarInset>
       </SidebarProvider>
+
 
       <LocalCursor color={myColor} x={localCursor.x} y={localCursor.y} cursorType={isOverCanvas ? cursorMode : "pointer"} />
 

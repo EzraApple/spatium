@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Trash2 } from "lucide-react"
+import { Trash2, Package } from "lucide-react"
 import { HexColorPicker } from "react-colorful"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +29,7 @@ type FurniturePropertiesProps = {
   furniture: FurnitureEntity
   onUpdate: (furniture: FurnitureEntity) => void
   onDelete: (furnitureId: string) => void
+  onPickUp: (furnitureId: string) => void
 }
 
 const FURNITURE_TYPE_LABELS: Record<FurnitureEntity["furnitureType"], string> = {
@@ -42,7 +43,7 @@ const FURNITURE_TYPE_LABELS: Record<FurnitureEntity["furnitureType"], string> = 
   "bed": "Bed",
 }
 
-export function FurnitureProperties({ furniture, onUpdate, onDelete }: FurniturePropertiesProps) {
+export function FurnitureProperties({ furniture, onUpdate, onDelete, onPickUp }: FurniturePropertiesProps) {
   const [name, setName] = useState("")
   const [width, setWidth] = useState("")
   const [height, setHeight] = useState("")
@@ -158,15 +159,26 @@ export function FurnitureProperties({ furniture, onUpdate, onDelete }: Furniture
       title="Furniture"
       subtitle={furnitureTypeLabel}
       footer={
-        <Button
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={() => onDelete(furniture.id)}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete Furniture
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onPickUp(furniture.id)}
+          >
+            <Package className="mr-2 h-4 w-4" />
+            Pick Up
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full"
+            onClick={() => onDelete(furniture.id)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Furniture
+          </Button>
+        </div>
       }
     >
       <div onFocusCapture={handleFocusCapture} className="space-y-4">

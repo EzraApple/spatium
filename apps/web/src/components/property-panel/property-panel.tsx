@@ -12,6 +12,7 @@ type PropertyPanelProps = {
   onDoorUpdate: (door: DoorEntity) => void
   onRoomDelete: (roomId: string) => void
   onFurnitureDelete: (furnitureId: string) => void
+  onFurniturePickUp: (furnitureId: string) => void
   onDoorDelete: (doorId: string) => void
 }
 
@@ -24,6 +25,7 @@ export function PropertyPanel({
   onDoorUpdate,
   onRoomDelete,
   onFurnitureDelete,
+  onFurniturePickUp,
   onDoorDelete,
 }: PropertyPanelProps) {
   if (selectedDoor) {
@@ -52,6 +54,7 @@ export function PropertyPanel({
         furniture={selectedFurniture}
         onUpdate={onFurnitureUpdate}
         onDelete={onFurnitureDelete}
+        onPickUp={onFurniturePickUp}
       />
     )
   }

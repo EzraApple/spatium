@@ -11,6 +11,7 @@ type UseKeyboardShortcutsProps = {
   deleteSelected: () => void
   deselect: () => void
   rotateFurniture: (furniture: FurnitureEntity) => void
+  pickUpFurniture: (furnitureId: string) => void
   zoomIn: () => void
   zoomOut: () => void
   openShortcutsModal: () => void
@@ -32,6 +33,7 @@ export function useKeyboardShortcuts({
   deleteSelected,
   deselect,
   rotateFurniture,
+  pickUpFurniture,
   zoomIn,
   zoomOut,
   openShortcutsModal,
@@ -88,6 +90,14 @@ export function useKeyboardShortcuts({
         return
       }
 
+      if (e.key.toLowerCase() === "p" && !isMod) {
+        if (selectedFurniture) {
+          e.preventDefault()
+          pickUpFurniture(selectedFurniture.id)
+        }
+        return
+      }
+
       if (e.key === "=" || e.key === "+") {
         e.preventDefault()
         zoomIn()
@@ -116,6 +126,7 @@ export function useKeyboardShortcuts({
       deleteSelected,
       deselect,
       rotateFurniture,
+      pickUpFurniture,
       zoomIn,
       zoomOut,
       openShortcutsModal,

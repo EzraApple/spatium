@@ -19,6 +19,7 @@ import {
   getFurniture,
   getDoors,
   normalizeLayoutDocument,
+  INVENTORY_ROOM_ID,
 } from "@apartment-planner/shared"
 import { usePartySocket } from "./use-party-socket"
 
@@ -185,6 +186,11 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
     send({ type: "furniture-move", furnitureId, position, roomId })
   }, [send])
 
+  const moveFurniture = useCallback((furnitureId: string, position: Point, roomId: string) => {
+    moveFurnitureLocal(furnitureId, position, roomId)
+    moveFurnitureSync(furnitureId, position, roomId)
+  }, [moveFurnitureLocal, moveFurnitureSync])
+
   const addDoor = useCallback((door: DoorEntity) => {
     send({ type: "door-add", door })
     setDocument((prev) => normalizeLayoutDocument({
@@ -225,8 +231,15 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
     send({ type: "door-update", door: { ...door, wallIndex, positionOnWall } })
   }, [send])
 
+  const moveDoor = useCallback((doorId: string, wallIndex: number, positionOnWall: number) => {
+    moveDoorLocal(doorId, wallIndex, positionOnWall)
+    moveDoorSync(doorId, wallIndex, positionOnWall)
+  }, [moveDoorLocal, moveDoorSync])
+
   const rooms = getRooms(document)
-  const furniture = getFurniture(document)
+  const allFurniture = getFurniture(document)
+  const furniture = allFurniture.filter((f) => f.roomId !== INVENTORY_ROOM_ID)
+  const inventoryFurniture = allFurniture.filter((f) => f.roomId === INVENTORY_ROOM_ID)
   const doors = getDoors(document)
 
   const getFurnitureByRoom = useCallback((roomId: string) => {
@@ -241,6 +254,7 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
     document,
     rooms,
     furniture,
+    inventoryFurniture,
     doors,
     addRoom,
     updateRoom,
@@ -251,12 +265,14 @@ export function useLayoutSync(socket: ReturnType<typeof usePartySocket>) {
     addFurniture,
     updateFurniture,
     deleteFurniture,
+    moveFurniture,
     moveFurnitureLocal,
     moveFurnitureSync,
     getFurnitureByRoom,
     addDoor,
     updateDoor,
     deleteDoor,
+    moveDoor,
     moveDoorLocal,
     moveDoorSync,
     getDoorsByRoom,

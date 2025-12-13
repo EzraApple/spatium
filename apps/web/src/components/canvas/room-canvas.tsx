@@ -15,6 +15,7 @@ export type RoomCanvasHandle = {
   screenToWorld: (clientX: number, clientY: number) => Point
   worldToScreen: (worldX: number, worldY: number) => Point
   getViewportCenter: () => Point
+  getPixelScale: () => number
   zoomIn: () => void
   zoomOut: () => void
   getSvgElement: () => SVGSVGElement | null
@@ -43,7 +44,7 @@ type RoomCanvasProps = {
   onMouseUp: () => void
   onDragUpdate: (worldPosition: Point, mousePos: Point) => void
   onCanvasClick: () => void
-  onContextMenu: (x: number, y: number, targetRoom: RoomEntity | null) => void
+  onContextMenu: (x: number, y: number, targetRoom: RoomEntity | null, targetFurniture: FurnitureEntity | null) => void
   onCursorModeChange: (mode: CursorMode) => void
   onDoorPlace: (roomId: string, wallIndex: number, positionOnWall: number) => void
   onDoorPlaceCancel: () => void
@@ -239,10 +240,14 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       }
       return svgToWorld(centerSvg)
     },
+    getPixelScale: (): number => {
+      if (!svgRef.current) return 1
+      return (svgRef.current.clientWidth / viewBox.width) * scale
+    },
     zoomIn: () => zoomAtCenter(0.9),
     zoomOut: () => zoomAtCenter(1.1),
     getSvgElement: () => svgRef.current,
-  }), [screenToSvg, svgToWorld, worldToSvg, svgToScreen, viewBox, zoomAtCenter])
+  }), [screenToSvg, svgToWorld, worldToSvg, svgToScreen, viewBox, scale, zoomAtCenter])
 
   const hitTestFurniture = useCallback(
     (worldPos: Point): FurnitureEntity | null => hitTestFurnitureLib(worldPos, furniture, rooms),
@@ -404,8 +409,9 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     e.preventDefault()
     const svgPos = screenToSvg(e.clientX, e.clientY)
     const worldPos = svgToWorld(svgPos)
+    const targetFurniture = hitTestFurniture(worldPos)
     const targetRoom = hitTestRoom(worldPos)
-    onContextMenu(e.clientX, e.clientY, targetRoom)
+    onContextMenu(e.clientX, e.clientY, targetRoom, targetFurniture)
   }
 
   const getRoomCollisionState = (room: RoomEntity): boolean => {

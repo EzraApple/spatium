@@ -32,6 +32,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["⌘", "D"], description: "Duplicate selected item" },
       { keys: ["⌫"], description: "Delete selected item" },
       { keys: ["R"], description: "Rotate furniture 90°" },
+      { keys: ["P"], description: "Pick up furniture to inventory" },
     ],
   },
   {

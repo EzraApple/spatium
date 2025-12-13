@@ -17,10 +17,12 @@ import {
   shapeToVertices,
   getWallSegments,
   findClosestWallPoint,
+  INVENTORY_ROOM_ID,
 } from "@apartment-planner/shared"
 
 type UseEditorActionsProps = {
   rooms: RoomEntity[]
+  furniture: FurnitureEntity[]
   doors: DoorEntity[]
   addRoom: (room: RoomEntity) => void
   updateRoom: (room: RoomEntity) => void
@@ -28,6 +30,7 @@ type UseEditorActionsProps = {
   addFurniture: (furniture: FurnitureEntity) => void
   updateFurniture: (furniture: FurnitureEntity) => void
   deleteFurniture: (furnitureId: string) => void
+  moveFurniture: (furnitureId: string, position: Point, roomId: string) => void
   addDoor: (door: DoorEntity) => void
   updateDoor: (door: DoorEntity) => void
   deleteDoor: (doorId: string) => void
@@ -37,6 +40,7 @@ type UseEditorActionsProps = {
 
 export function useEditorActions({
   rooms,
+  furniture,
   doors,
   addRoom,
   updateRoom,
@@ -44,6 +48,7 @@ export function useEditorActions({
   addFurniture,
   updateFurniture,
   deleteFurniture: deleteFurnitureSync,
+  moveFurniture,
   addDoor,
   updateDoor,
   deleteDoor: deleteDoorSync,
@@ -198,6 +203,16 @@ export function useEditorActions({
     [deleteDoorSync, deselect]
   )
 
+  const pickUpFurniture = useCallback(
+    (furnitureId: string) => {
+      const f = furniture.find((item) => item.id === furnitureId)
+      if (!f) return
+      moveFurniture(furnitureId, { x: 0, y: 0 }, INVENTORY_ROOM_ID)
+      deselect()
+    },
+    [furniture, moveFurniture, deselect]
+  )
+
   const getDefaultDoorPlacement = useCallback(() => {
     return {
       doorWidth: inchesToEighths(36),
@@ -215,6 +230,7 @@ export function useEditorActions({
     deleteRoom,
     deleteFurniture,
     deleteDoor,
+    pickUpFurniture,
     getDefaultDoorPlacement,
   }
 }

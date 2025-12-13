@@ -19,3 +19,5 @@ export const CURSOR_COLORS = [
 
 export const THROTTLE_MS = 33
 
+export const INVENTORY_ROOM_ID = "__inventory__"
+
