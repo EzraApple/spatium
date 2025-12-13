@@ -28,6 +28,10 @@ pnpm dev
 
 Open `http://localhost:5173` in multiple browser tabs to see cursor sync in action.
 
+## Acknowledgments
+
+Vibe coded with [Claude Opus 4.5](https://www.anthropic.com/claude).
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
