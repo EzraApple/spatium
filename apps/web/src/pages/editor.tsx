@@ -59,6 +59,14 @@ export function EditorPage() {
 
   const socket = usePartySocket(layout?.roomCode)
 
+  const screenToWorld = useCallback((clientX: number, clientY: number): Point => {
+    return roomCanvasRef.current?.screenToWorld(clientX, clientY) ?? { x: 0, y: 0 }
+  }, [])
+
+  const worldToScreen = useCallback((worldX: number, worldY: number): Point => {
+    return roomCanvasRef.current?.worldToScreen(worldX, worldY) ?? { x: 0, y: 0 }
+  }, [])
+
   const {
     cursors,
     clicks,
@@ -67,7 +75,7 @@ export function EditorPage() {
     sendCursorMove,
     sendCursorLeave,
     sendClick,
-  } = useCursorSync(socket)
+  } = useCursorSync(socket, screenToWorld)
 
   const {
     rooms,
@@ -516,9 +524,9 @@ export function EditorPage() {
             )}
 
             <div className="pointer-events-none absolute inset-0">
-              <CursorCanvas cursors={cursors} />
+              <CursorCanvas cursors={cursors} worldToScreen={worldToScreen} />
               {clicks.map((click) => (
-                <ClickRipple key={click.id} click={click} />
+                <ClickRipple key={click.id} click={click} worldToScreen={worldToScreen} />
               ))}
             </div>
 

@@ -13,6 +13,7 @@ export type CursorMode = "grab" | "grabbing" | "pointer" | "crosshair"
 
 export type RoomCanvasHandle = {
   screenToWorld: (clientX: number, clientY: number) => Point
+  worldToScreen: (worldX: number, worldY: number) => Point
   getViewportCenter: () => Point
   zoomIn: () => void
   zoomOut: () => void
@@ -178,6 +179,27 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     [scale]
   )
 
+  const worldToSvg = useCallback(
+    (worldPos: Point): Point => {
+      return {
+        x: worldPos.x * scale,
+        y: worldPos.y * scale,
+      }
+    },
+    [scale]
+  )
+
+  const svgToScreen = useCallback(
+    (svgX: number, svgY: number): Point => {
+      if (!svgRef.current) return { x: 0, y: 0 }
+      const rect = svgRef.current.getBoundingClientRect()
+      const x = ((svgX - viewBox.x) / viewBox.width) * rect.width + rect.left
+      const y = ((svgY - viewBox.y) / viewBox.height) * rect.height + rect.top
+      return { x, y }
+    },
+    [viewBox]
+  )
+
   const zoomAtCenter = useCallback((zoomFactor: number) => {
     setViewBox((prev) => {
       const baseWidth = baseViewWidthRef.current ?? prev.width
@@ -206,6 +228,10 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       const svgPos = screenToSvg(clientX, clientY)
       return svgToWorld(svgPos)
     },
+    worldToScreen: (worldX: number, worldY: number): Point => {
+      const svgPos = worldToSvg({ x: worldX, y: worldY })
+      return svgToScreen(svgPos.x, svgPos.y)
+    },
     getViewportCenter: (): Point => {
       const centerSvg = {
         x: viewBox.x + viewBox.width / 2,
@@ -216,7 +242,7 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     zoomIn: () => zoomAtCenter(0.9),
     zoomOut: () => zoomAtCenter(1.1),
     getSvgElement: () => svgRef.current,
-  }), [screenToSvg, svgToWorld, viewBox, zoomAtCenter])
+  }), [screenToSvg, svgToWorld, worldToSvg, svgToScreen, viewBox, zoomAtCenter])
 
   const hitTestFurniture = useCallback(
     (worldPos: Point): FurnitureEntity | null => hitTestFurnitureLib(worldPos, furniture, rooms),

@@ -4,8 +4,9 @@ import {
   type ClientMessage,
   type ClientState,
   type ServerMessage,
+  type Point,
 } from "@apartment-planner/shared"
-import { usePartySocket, type ConnectionStatus } from "./use-party-socket"
+import { usePartySocket } from "./use-party-socket"
 
 export type ClickEvent = {
   id: string
@@ -14,7 +15,12 @@ export type ClickEvent = {
   color: string
 }
 
-export function useCursorSync(socket: ReturnType<typeof usePartySocket>) {
+type ScreenToWorld = (clientX: number, clientY: number) => Point
+
+export function useCursorSync(
+  socket: ReturnType<typeof usePartySocket>,
+  screenToWorld: ScreenToWorld | null
+) {
   const [cursors, setCursors] = useState<Record<string, ClientState>>({})
   const [clicks, setClicks] = useState<ClickEvent[]>([])
   const [myColor, setMyColor] = useState<string | null>(null)
@@ -77,28 +83,30 @@ export function useCursorSync(socket: ReturnType<typeof usePartySocket>) {
     }
   }, [status])
 
-  const sendCursorMove = useCallback((x: number, y: number) => {
+  const sendCursorMove = useCallback((clientX: number, clientY: number) => {
+    if (!screenToWorld) return
+
     const now = Date.now()
     if (now - lastSentRef.current < THROTTLE_MS) return
 
     lastSentRef.current = now
-    const normalizedX = x / window.innerWidth
-    const normalizedY = y / window.innerHeight
-    const message: ClientMessage = { type: "cursor-move", x: normalizedX, y: normalizedY }
+    const worldPos = screenToWorld(clientX, clientY)
+    const message: ClientMessage = { type: "cursor-move", x: worldPos.x, y: worldPos.y }
     send(message)
-  }, [send])
+  }, [send, screenToWorld])
 
   const sendCursorLeave = useCallback(() => {
     const message: ClientMessage = { type: "cursor-leave" }
     send(message)
   }, [send])
 
-  const sendClick = useCallback((x: number, y: number) => {
-    const normalizedX = x / window.innerWidth
-    const normalizedY = y / window.innerHeight
-    const message: ClientMessage = { type: "cursor-click", x: normalizedX, y: normalizedY }
+  const sendClick = useCallback((clientX: number, clientY: number) => {
+    if (!screenToWorld) return
+
+    const worldPos = screenToWorld(clientX, clientY)
+    const message: ClientMessage = { type: "cursor-click", x: worldPos.x, y: worldPos.y }
     send(message)
-  }, [send])
+  }, [send, screenToWorld])
 
   const otherCursors = Object.entries(cursors).filter(
     ([id]) => id !== myIdRef.current

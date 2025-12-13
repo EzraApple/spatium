@@ -1,19 +1,24 @@
+import type { Point } from "@apartment-planner/shared"
+
+type WorldToScreen = (worldX: number, worldY: number) => Point
+
 type CursorProps = {
   color: string
   x: number
   y: number
+  worldToScreen: WorldToScreen | null
 }
 
-export function Cursor({ color, x, y }: CursorProps) {
-  if (x <= 0 || y <= 0) return null
+export function Cursor({ color, x, y, worldToScreen }: CursorProps) {
+  if (!worldToScreen) return null
 
-  const pixelX = x * window.innerWidth
-  const pixelY = y * window.innerHeight
+  const screenPos = worldToScreen(x, y)
+  if (screenPos.x <= 0 || screenPos.y <= 0) return null
 
   return (
     <div
       className="pointer-events-none fixed z-50 transition-all duration-75"
-      style={{ left: pixelX, top: pixelY }}
+      style={{ left: screenPos.x, top: screenPos.y }}
     >
       <svg
         width="24"
@@ -34,4 +39,3 @@ export function Cursor({ color, x, y }: CursorProps) {
     </div>
   )
 }
-
