@@ -14,6 +14,9 @@ export type CursorMode = "grab" | "grabbing" | "pointer" | "crosshair"
 export type RoomCanvasHandle = {
   screenToWorld: (clientX: number, clientY: number) => Point
   getViewportCenter: () => Point
+  zoomIn: () => void
+  zoomOut: () => void
+  getSvgElement: () => SVGSVGElement | null
 }
 
 type PlacingDoorState = {
@@ -175,6 +178,29 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
     [scale]
   )
 
+  const zoomAtCenter = useCallback((zoomFactor: number) => {
+    setViewBox((prev) => {
+      const baseWidth = baseViewWidthRef.current ?? prev.width
+      if (baseViewWidthRef.current === null) {
+        baseViewWidthRef.current = baseWidth
+      }
+
+      const centerX = prev.x + prev.width / 2
+      const centerY = prev.y + prev.height / 2
+
+      const newWidth = prev.width * zoomFactor
+      const newHeight = prev.height * zoomFactor
+
+      const newX = centerX - newWidth / 2
+      const newY = centerY - newHeight / 2
+
+      const zoomPercent = Math.round((baseWidth / newWidth) * 100)
+      onZoomChange(zoomPercent)
+
+      return { x: newX, y: newY, width: newWidth, height: newHeight }
+    })
+  }, [onZoomChange])
+
   useImperativeHandle(ref, () => ({
     screenToWorld: (clientX: number, clientY: number): Point => {
       const svgPos = screenToSvg(clientX, clientY)
@@ -187,7 +213,10 @@ export const RoomCanvas = forwardRef<RoomCanvasHandle, RoomCanvasProps>(function
       }
       return svgToWorld(centerSvg)
     },
-  }), [screenToSvg, svgToWorld, viewBox])
+    zoomIn: () => zoomAtCenter(0.9),
+    zoomOut: () => zoomAtCenter(1.1),
+    getSvgElement: () => svgRef.current,
+  }), [screenToSvg, svgToWorld, viewBox, zoomAtCenter])
 
   const hitTestFurniture = useCallback(
     (worldPos: Point): FurnitureEntity | null => hitTestFurnitureLib(worldPos, furniture, rooms),

@@ -5,13 +5,15 @@ import { CursorCanvas, LocalCursor, ClickRipple } from "@/components/cursors"
 import { RoomSidebar } from "@/components/sidebar"
 import { RoomCanvas, type CursorMode, type RoomCanvasHandle } from "@/components/canvas"
 import { PropertyPanel } from "@/components/property-panel"
-import { AddRoomModal, AddFurnitureModal, CanvasContextMenu } from "@/components/modals"
+import { AddRoomModal, AddFurnitureModal, CanvasContextMenu, ShortcutsModal } from "@/components/modals"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { usePartySocket } from "@/hooks/use-party-socket"
 import { useCursorSync } from "@/hooks/use-cursor-sync"
 import { useLayoutSync } from "@/hooks/use-layout-sync"
 import { useCanvasInteraction } from "@/hooks/use-canvas-interaction"
 import { useEditorActions } from "@/hooks/use-editor-actions"
+import { useClipboard } from "@/hooks/use-clipboard"
+import { useKeyboardShortcuts, getNextRotation } from "@/hooks/use-keyboard-shortcuts"
 import { getLayout, updateLayoutName } from "@/lib/api"
 import { addVisitedRoom } from "@/lib/visited-rooms"
 import type {
@@ -53,6 +55,7 @@ export function EditorPage() {
     doorWidth: number
     hingeSide: HingeSide
   } | null>(null)
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
 
   const socket = usePartySocket(layout?.roomCode)
 
@@ -140,6 +143,69 @@ export function EditorPage() {
     deleteDoor,
     select,
     deselect,
+  })
+
+  const { copy, paste, duplicate } = useClipboard({
+    rooms,
+    furniture,
+    doors,
+    selectedId,
+    selectedType,
+    addRoom,
+    addFurniture,
+    addDoor,
+    select,
+  })
+
+  const selectedFurnitureForKeyboard = selectedType === "furniture" && selectedId
+    ? furniture.find((f) => f.id === selectedId) ?? null
+    : null
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedId || !selectedType) return
+    switch (selectedType) {
+      case "room":
+        handleDeleteRoom(selectedId)
+        break
+      case "furniture":
+        handleDeleteFurniture(selectedId)
+        break
+      case "door":
+        handleDeleteDoor(selectedId)
+        break
+    }
+  }, [selectedId, selectedType, handleDeleteRoom, handleDeleteFurniture, handleDeleteDoor])
+
+  const handleRotateFurniture = useCallback((f: typeof selectedFurnitureForKeyboard) => {
+    if (!f) return
+    updateFurniture({ ...f, rotation: getNextRotation(f.rotation) })
+  }, [updateFurniture])
+
+  const handleZoomIn = useCallback(() => {
+    roomCanvasRef.current?.zoomIn()
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    roomCanvasRef.current?.zoomOut()
+  }, [])
+
+  const handleOpenShortcutsModal = useCallback(() => {
+    setShortcutsModalOpen(true)
+  }, [])
+
+  useKeyboardShortcuts({
+    selectedId,
+    selectedType,
+    selectedFurniture: selectedFurnitureForKeyboard,
+    copy,
+    paste,
+    duplicate,
+    deleteSelected: handleDeleteSelected,
+    deselect,
+    rotateFurniture: handleRotateFurniture,
+    zoomIn: handleZoomIn,
+    zoomOut: handleZoomOut,
+    openShortcutsModal: handleOpenShortcutsModal,
   })
 
   useEffect(() => {
@@ -397,6 +463,7 @@ export function EditorPage() {
           onRoomNameChange={handleRoomNameChange}
           onSelectFurniture={handleSelectFurniture}
           onSelectDoor={handleSelectDoor}
+          onShowShortcuts={handleOpenShortcutsModal}
         />
         <SidebarInset className="flex flex-col relative overflow-hidden">
           <div
@@ -493,6 +560,11 @@ export function EditorPage() {
         roomId={addFurnitureRoomId}
         onOpenChange={setAddFurnitureModalOpen}
         onAdd={handleAddFurniture}
+      />
+
+      <ShortcutsModal
+        open={shortcutsModalOpen}
+        onOpenChange={setShortcutsModalOpen}
       />
     </div>
   )

@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Keyboard } from "lucide-react"
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -26,29 +28,61 @@ function LinkedInIcon({ className }: { className?: string }) {
   )
 }
 
-export function SocialIcons() {
+type SocialIconsProps = {
+  onShowShortcuts?: () => void
+}
+
+export function SocialIcons({ onShowShortcuts }: SocialIconsProps) {
   return (
-    <div className="flex w-full items-center justify-center gap-2">
-      <Button asChild variant="outline" size="icon" className="h-8 w-8 bg-background p-1.5">
-        <a
-          href="https://github.com/EzraApple/spatium"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="GitHub"
-        >
-          <GitHubIcon className="h-full w-full" />
-        </a>
-      </Button>
-      <Button asChild variant="outline" size="icon" className="h-8 w-8 bg-background p-1.5">
-        <a
-          href="https://www.linkedin.com/in/ezraapple/"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="LinkedIn"
-        >
-          <LinkedInIcon className="h-full w-full" />
-        </a>
-      </Button>
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex w-full items-center justify-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button asChild variant="outline" size="icon" className="h-8 w-8 bg-background p-1.5">
+              <a
+                href="https://github.com/EzraApple/spatium"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="GitHub"
+              >
+                <GitHubIcon className="h-full w-full" />
+              </a>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>GitHub</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button asChild variant="outline" size="icon" className="h-8 w-8 bg-background p-1.5">
+              <a
+                href="https://www.linkedin.com/in/ezraapple/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="LinkedIn"
+              >
+                <LinkedInIcon className="h-full w-full" />
+              </a>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>LinkedIn</TooltipContent>
+        </Tooltip>
+        {onShowShortcuts && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 bg-background p-1.5"
+                onClick={onShowShortcuts}
+                aria-label="Keyboard shortcuts"
+              >
+                <Keyboard className="h-full w-full" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Keyboard shortcuts</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
   )
 }

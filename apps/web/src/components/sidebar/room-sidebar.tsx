@@ -42,6 +42,7 @@ type RoomSidebarProps = {
   onRoomNameChange: (roomId: string, name: string) => void
   onSelectFurniture: (furnitureId: string) => void
   onSelectDoor: (doorId: string) => void
+  onShowShortcuts: () => void
 }
 
 function getFurnitureIcon(furnitureType: FurnitureEntity["furnitureType"]) {
@@ -65,6 +66,7 @@ export function RoomSidebar({
   onRoomNameChange,
   onSelectFurniture,
   onSelectDoor,
+  onShowShortcuts,
 }: RoomSidebarProps) {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
@@ -238,7 +240,7 @@ export function RoomSidebar({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="items-center border-t-2 border-sidebar-border p-3">
-        <SocialIcons />
+        <SocialIcons onShowShortcuts={onShowShortcuts} />
       </SidebarFooter>
     </Sidebar>
   )
