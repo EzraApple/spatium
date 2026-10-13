@@ -1,4 +1,4 @@
-import type * as Party from "partykit/server"
+import type { Connection } from "partyserver"
 import type {
   ClientMessage,
   ServerMessage,
@@ -13,13 +13,16 @@ import {
   moveFurniture,
   normalizeLayoutDocument,
 } from "@apartment-planner/shared"
-import { getLayoutByRoomCode, updateLayoutData } from "../lib/db"
+import { getLayoutByRoomCode, updateLayoutData, type Database } from "../lib/db"
+
+type Room = { name: string; getConnections(): Iterable<Connection> }
 
 export class LayoutHandler {
   private document: LayoutDocument = { version: 1, entities: [] }
   private layoutId: string | null = null
+  private loadPromise?: Promise<void>
 
-  constructor(private room: Party.Room) {}
+  constructor(private room: Room, private getDatabase: () => Database) {}
 
   private broadcast(message: ServerMessage, exclude?: string) {
     const data = JSON.stringify(message)
@@ -32,7 +35,7 @@ export class LayoutHandler {
 
   private async persistDocument() {
     if (this.layoutId) {
-      await updateLayoutData(this.layoutId, this.document)
+      await updateLayoutData(this.getDatabase(), this.layoutId, this.document)
     }
   }
 
@@ -40,19 +43,30 @@ export class LayoutHandler {
     this.document = normalizeLayoutDocument({ ...this.document, entities }).document
   }
 
-  async onConnect(connection: Party.Connection) {
-    if (!this.layoutId) {
-      const layout = await getLayoutByRoomCode(this.room.id)
-      if (layout) {
-        this.layoutId = layout.id
-        const normalized = normalizeLayoutDocument(layout.data as LayoutDocument)
-        this.document = normalized.document
-        if (normalized.didChange) {
-          await this.persistDocument()
-        }
+  private async loadDocument() {
+    const layout = await getLayoutByRoomCode(this.getDatabase(), this.room.name)
+    if (layout) {
+      this.layoutId = layout.id
+      const normalized = normalizeLayoutDocument(layout.data as LayoutDocument)
+      this.document = normalized.document
+      if (normalized.didChange) {
+        await this.persistDocument()
       }
     }
+  }
 
+  private async ensureLoaded() {
+    if (!this.loadPromise) {
+      this.loadPromise = this.loadDocument().catch((error) => {
+        this.loadPromise = undefined
+        throw error
+      })
+    }
+    await this.loadPromise
+  }
+
+  async onConnect(connection: Connection) {
+    await this.ensureLoaded()
     const syncMessage: ServerMessage = {
       type: "layout-sync",
       document: this.document,
@@ -60,7 +74,8 @@ export class LayoutHandler {
     connection.send(JSON.stringify(syncMessage))
   }
 
-  async onMessage(message: string, sender: Party.Connection) {
+  async onMessage(message: string, sender: Connection) {
+    await this.ensureLoaded()
     const data = JSON.parse(message) as ClientMessage
 
     if (data.type === "room-add") {

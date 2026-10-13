@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spatium-party",
+  "account_id": "e87894f82403c03c5627d8e3252e4b41",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-10-13",
+  "dev": { "port": 1999 },
+  "durable_objects": {
+    "bindings": [{ "name": "Main", "class_name": "SpatiumServer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SpatiumServer"] }]
+}

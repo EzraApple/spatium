@@ -13,20 +13,39 @@ The first version was scrappy and just for us. But once it worked, I realized th
 Turborepo + pnpm workspace monorepo:
 
 - `apps/web` - Vite + React + Tailwind frontend
-- `apps/party` - PartyKit WebSocket server
+- `apps/party` - PartyServer WebSocket server on Cloudflare Workers
 - `packages/shared` - Shared types and constants
 
 ## Local Development
+
+Use Node.js 22 or later and the pnpm version specified in `package.json`.
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Start both apps (Vite on :5173, PartyKit on :1999)
+# Set DATABASE_URL in apps/party/.env to the existing Neon connection string.
+
+# Start both apps (Vite on :5173, Wrangler on :1999)
 pnpm dev
 ```
 
 Open `http://localhost:5173` in multiple browser tabs to see cursor sync in action.
+
+## Deployment
+
+The frontend runs on Vercel. The realtime backend runs in the project's Cloudflare
+account at `spatium-party.dawn-king-4a90.workers.dev`. Layouts remain in the existing
+Neon Postgres database. Durable Objects coordinate each room and hibernate while
+idle; they do not replace Neon as the layout store.
+
+From `apps/party`, configure the existing Neon connection string as a Worker secret
+with `pnpm exec wrangler secret put DATABASE_URL`, then deploy with `pnpm run deploy`.
+Use `pnpm exec wrangler login` if the CLI is not already authenticated.
+
+The frontend's default production host is configured in `apps/web/src/lib/env.ts`.
+Set `VITE_PARTYKIT_HOST` at build time to test against another backend. Redeploy the
+frontend after changing hosts, and refresh open pages to use the new server.
 
 ## Acknowledgments
 

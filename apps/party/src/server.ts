@@ -1,23 +1,32 @@
-import type * as Party from "partykit/server"
+import { routePartykitRequest, Server, type Connection, type WSMessage } from "partyserver"
 import { CursorHandler } from "./handlers/cursor"
 import { LayoutHandler } from "./handlers/layout"
 import { handleHttpRequest } from "./handlers/http"
+import { createDatabase, type Database } from "./lib/db"
 
-export default class SpatiumServer implements Party.Server {
-  private cursorHandler: CursorHandler
-  private layoutHandler: LayoutHandler
+interface Env extends Cloudflare.Env {
+  Main: DurableObjectNamespace<SpatiumServer>
+  DATABASE_URL: string
+}
 
-  constructor(readonly room: Party.Room) {
-    this.cursorHandler = new CursorHandler(room)
-    this.layoutHandler = new LayoutHandler(room)
+export class SpatiumServer extends Server<Env> {
+  static options = { hibernate: true }
+
+  private cursorHandler = new CursorHandler(this)
+  private layoutHandler = new LayoutHandler(this, () => this.getDatabase())
+  private database?: Database
+
+  private getDatabase(): Database {
+    return (this.database ??= createDatabase(this.env.DATABASE_URL))
   }
 
-  async onConnect(connection: Party.Connection) {
+  async onConnect(connection: Connection) {
     this.cursorHandler.onConnect(connection)
     await this.layoutHandler.onConnect(connection)
   }
 
-  async onMessage(message: string, sender: Party.Connection) {
+  async onMessage(sender: Connection, message: WSMessage) {
+    if (typeof message !== "string") return
     const data = JSON.parse(message)
 
     if (data.type.startsWith("cursor-")) {
@@ -27,13 +36,17 @@ export default class SpatiumServer implements Party.Server {
     }
   }
 
-  onClose(connection: Party.Connection) {
+  onClose(connection: Connection) {
     this.cursorHandler.onClose(connection)
   }
 
-  async onRequest(request: Party.Request): Promise<Response> {
-    return handleHttpRequest(request)
+  onRequest(request: Request): Promise<Response> {
+    return handleHttpRequest(request, this.getDatabase())
   }
 }
 
-SpatiumServer satisfies Party.Worker
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (await routePartykitRequest(request, env)) ?? new Response("Not found", { status: 404 })
+  },
+} satisfies ExportedHandler<Env>
