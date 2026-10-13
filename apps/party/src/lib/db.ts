@@ -1,8 +1,14 @@
-import { neon } from "@neondatabase/serverless"
-import { env } from "./env"
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 import type { LayoutDocument } from "@apartment-planner/shared"
 
-export const sql = neon(env.DATABASE_URL)
+export type Database = NeonQueryFunction<false, false>
+
+export function createDatabase(databaseUrl: string): Database {
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is not set")
+  }
+  return neon(databaseUrl)
+}
 
 const DEFAULT_DATA: LayoutDocument = { version: 2, entities: [] }
 
@@ -15,7 +21,7 @@ export type Layout = {
   updated_at: Date
 }
 
-export async function createLayout(roomCode: string): Promise<Layout> {
+export async function createLayout(sql: Database, roomCode: string): Promise<Layout> {
   const rows = await sql`
     INSERT INTO layouts (id, name, room_code, data, created_at, updated_at)
     VALUES (gen_random_uuid(), 'Untitled Layout', ${roomCode}, ${JSON.stringify(DEFAULT_DATA)}::jsonb, NOW(), NOW())
@@ -24,7 +30,7 @@ export async function createLayout(roomCode: string): Promise<Layout> {
   return rows[0] as Layout
 }
 
-export async function getLayoutById(id: string): Promise<Layout | null> {
+export async function getLayoutById(sql: Database, id: string): Promise<Layout | null> {
   const rows = await sql`
     SELECT id, name, room_code, data, created_at, updated_at
     FROM layouts
@@ -33,7 +39,7 @@ export async function getLayoutById(id: string): Promise<Layout | null> {
   return (rows[0] as Layout) ?? null
 }
 
-export async function getLayoutByRoomCode(roomCode: string): Promise<Layout | null> {
+export async function getLayoutByRoomCode(sql: Database, roomCode: string): Promise<Layout | null> {
   const rows = await sql`
     SELECT id, name, room_code, data, created_at, updated_at
     FROM layouts
@@ -42,7 +48,7 @@ export async function getLayoutByRoomCode(roomCode: string): Promise<Layout | nu
   return (rows[0] as Layout) ?? null
 }
 
-export async function updateLayoutName(id: string, name: string): Promise<Layout | null> {
+export async function updateLayoutName(sql: Database, id: string, name: string): Promise<Layout | null> {
   const rows = await sql`
     UPDATE layouts
     SET name = ${name}, updated_at = NOW()
@@ -52,7 +58,7 @@ export async function updateLayoutName(id: string, name: string): Promise<Layout
   return (rows[0] as Layout) ?? null
 }
 
-export async function updateLayoutData(id: string, data: LayoutDocument): Promise<Layout | null> {
+export async function updateLayoutData(sql: Database, id: string, data: LayoutDocument): Promise<Layout | null> {
   const rows = await sql`
     UPDATE layouts
     SET data = ${JSON.stringify(data)}::jsonb, updated_at = NOW()
@@ -62,14 +68,14 @@ export async function updateLayoutData(id: string, data: LayoutDocument): Promis
   return (rows[0] as Layout) ?? null
 }
 
-export async function roomCodeExists(roomCode: string): Promise<boolean> {
+export async function roomCodeExists(sql: Database, roomCode: string): Promise<boolean> {
   const rows = await sql`
     SELECT 1 FROM layouts WHERE room_code = ${roomCode} LIMIT 1
   `
   return rows.length > 0
 }
 
-export async function getLayoutsByRoomCodes(roomCodes: string[]): Promise<Layout[]> {
+export async function getLayoutsByRoomCodes(sql: Database, roomCodes: string[]): Promise<Layout[]> {
   if (roomCodes.length === 0) return []
   const rows = await sql`
     SELECT id, name, room_code, data, created_at, updated_at

@@ -1,4 +1,4 @@
-import type * as Party from "partykit/server"
+import type { Database } from "../lib/db"
 import { 
   createLayout, 
   getLayoutById, 
@@ -40,7 +40,7 @@ function cors(): Response {
   })
 }
 
-export async function handleHttpRequest(request: Party.Request): Promise<Response> {
+export async function handleHttpRequest(request: Request, sql: Database): Promise<Response> {
   const url = new URL(request.url)
   const path = url.pathname
 
@@ -54,13 +54,13 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
       let attempts = 0
       
       while (attempts < 10) {
-        const exists = await roomCodeExists(roomCode)
+        const exists = await roomCodeExists(sql, roomCode)
         if (!exists) break
         roomCode = generateRoomCode()
         attempts++
       }
 
-      const layout = await createLayout(roomCode)
+      const layout = await createLayout(sql, roomCode)
       return json({ id: layout.id, roomCode: layout.room_code, name: layout.name, data: layout.data })
     }
 
@@ -69,7 +69,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
       const id = layoutIdMatch[1]
 
       if (request.method === "GET") {
-        const layout = await getLayoutById(id)
+        const layout = await getLayoutById(sql, id)
         if (!layout) {
           return json({ error: "Layout not found" }, 404)
         }
@@ -81,7 +81,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
         if (!body.name) {
           return json({ error: "Name is required" }, 400)
         }
-        const layout = await updateLayoutName(id, body.name)
+        const layout = await updateLayoutName(sql, id, body.name)
         if (!layout) {
           return json({ error: "Layout not found" }, 404)
         }
@@ -92,7 +92,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
     const codeMatch = path.match(/\/layout\/code\/([A-Z0-9]+)$/i)
     if (codeMatch && request.method === "GET") {
       const code = codeMatch[1].toUpperCase()
-      const layout = await getLayoutByRoomCode(code)
+      const layout = await getLayoutByRoomCode(sql, code)
       if (!layout) {
         return json({ error: "Layout not found" }, 404)
       }
@@ -105,7 +105,7 @@ export async function handleHttpRequest(request: Party.Request): Promise<Respons
         return json({ error: "codes array is required" }, 400)
       }
       const codes = body.codes.map((c) => c.toUpperCase()).slice(0, 20)
-      const layouts = await getLayoutsByRoomCodes(codes)
+      const layouts = await getLayoutsByRoomCodes(sql, codes)
       return json(
         layouts.map((l) => ({ id: l.id, roomCode: l.room_code, name: l.name }))
       )

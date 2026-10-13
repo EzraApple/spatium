@@ -2,10 +2,12 @@ node_modules
 dist
 .turbo
 .partykit
+.wrangler
+.dev.vars
+.dev.vars.*
 .env
 .env.*
 .DS_Store
 *.log
 .vscode
 .idea
-

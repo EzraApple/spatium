@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "partykit dev",
-    "deploy": "partykit deploy",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test:state": "tsx --test tests/state.test.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -14,12 +15,15 @@
   "dependencies": {
     "@apartment-planner/shared": "workspace:*",
     "@neondatabase/serverless": "^0.10.4",
-    "partykit": "^0.0.111"
+    "partyserver": "^0.5.10"
   },
   "devDependencies": {
     "@prisma/client": "^6.1.0",
+    "@cloudflare/workers-types": "^5.20261013.1",
     "@types/node": "^22.10.2",
     "prisma": "^6.1.0",
-    "typescript": "^5.7.2"
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.150.0"
   }
 }
