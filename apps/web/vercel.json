@@ -4,6 +4,11 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/",
+      "destination": "https://spatium.dawn-king-4a90.workers.dev/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "destination": "https://spatium.dawn-king-4a90.workers.dev/:path*",
       "permanent": false
