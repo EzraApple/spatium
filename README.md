@@ -36,7 +36,8 @@ Open `http://localhost:5173` in multiple browser tabs to see cursor sync in acti
 
 The frontend runs on Cloudflare Workers at `spatium.dawn-king-4a90.workers.dev`.
 Its static assets and single-page app routing are configured in
-`apps/web/wrangler.jsonc`. The realtime backend runs in the same Cloudflare
+`apps/web/wrangler.jsonc`. The former Vercel URL redirects to this hostname,
+preserving editor paths and query parameters. The realtime backend runs in the same Cloudflare
 account at `spatium-party.dawn-king-4a90.workers.dev`. Layouts remain in the existing
 Neon Postgres database. Durable Objects coordinate each room and hibernate while
 idle; they do not replace Neon as the layout store.
