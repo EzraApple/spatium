@@ -1,4 +1,4 @@
-# [Spatium](https://spatium.dawn-king-4a90.workers.dev/)
+# [Spatium](https://spatium-snowy.vercel.app/)
 
 A lightweight, real-time collaborative apartment layout editor.
 
@@ -34,31 +34,10 @@ Open `http://localhost:5173` in multiple browser tabs to see cursor sync in acti
 
 ## Deployment
 
-The frontend runs on Cloudflare Workers at `spatium.dawn-king-4a90.workers.dev`.
-Its static assets and single-page app routing are configured in
-`apps/web/wrangler.jsonc`. The former Vercel URL redirects to this hostname,
-preserving editor paths and query parameters. The realtime backend runs in the same Cloudflare
+The frontend runs on Vercel. The realtime backend runs in the project's Cloudflare
 account at `spatium-party.dawn-king-4a90.workers.dev`. Layouts remain in the existing
 Neon Postgres database. Durable Objects coordinate each room and hibernate while
 idle; they do not replace Neon as the layout store.
-
-Build and deploy the frontend from the repository root:
-
-```bash
-pnpm --filter web build
-pnpm --filter web run deploy
-```
-
-For automatic frontend deployments, connect the `EzraApple/spatium` GitHub
-repository to the `spatium` Worker under Settings > Builds. Use production branch
-`main`, root directory `apps/web`, build command `pnpm build`, and deploy
-command `pnpm run deploy`. Set build environment variables
-`NODE_VERSION=22.22.2` and `PNPM_VERSION=10.24.0`. Once connected, pushes to `main`,
-including merged pull requests, build and deploy the frontend automatically.
-The initial CLI deployment does not create this GitHub connection.
-
-The new hostname has its own browser storage, so its recent-layout list starts
-empty. Existing layouts remain available with the same room codes and layout IDs.
 
 From `apps/party`, configure the existing Neon connection string as a Worker secret
 with `pnpm exec wrangler secret put DATABASE_URL`, then deploy with `pnpm run deploy`.
